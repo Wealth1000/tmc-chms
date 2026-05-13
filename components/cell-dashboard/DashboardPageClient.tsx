@@ -1,11 +1,14 @@
 "use client";
 
+import { useLayoutEffect, useState } from "react";
 import {
   addMemberPageHref,
   cellAttendanceHref,
   cellEditInfoHref,
   cellReportsHref,
 } from "@/lib/cell-leader-links";
+import { listCellActivities } from "@/lib/cell-activity-store";
+import { tallyMembersForCell } from "@/lib/members-store";
 import { CellLeaderDashboard } from "./CellLeaderDashboard";
 import type { ActivityListItem, CellStats } from "./types";
 
@@ -22,10 +25,18 @@ export function DashboardPageClient({
   cellSlug,
   cellName,
   leaderName,
-  stats,
+  stats: serverStats,
   lastUpdatedLabel,
-  activities,
+  activities: serverActivities,
 }: DashboardPageClientProps) {
+  const [stats, setStats] = useState(serverStats);
+  const [activities, setActivities] = useState<ActivityListItem[]>(serverActivities);
+
+  useLayoutEffect(() => {
+    setStats(tallyMembersForCell(cellSlug));
+    setActivities(listCellActivities(cellSlug));
+  }, [cellSlug]);
+
   return (
     <CellLeaderDashboard
       cellSlug={cellSlug}
@@ -38,12 +49,6 @@ export function DashboardPageClient({
       updateCellInfoHref={cellEditInfoHref(cellSlug)}
       viewReportsHref={cellReportsHref(cellSlug)}
       recordAttendanceHref={cellAttendanceHref(cellSlug)}
-      // TODO: wire remaining actions / routes
-      // onOpenProfile={() => {}}
-      // onRecordAttendance={() => {}}
-      // onUpdateCellInfo={() => {}}
-      // onViewReports={() => {}}
-      // onHelp={() => {}}
     />
   );
 }

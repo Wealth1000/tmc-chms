@@ -1,11 +1,7 @@
 "use client";
 
-/**
- * Backup of the fully styled RecordAttendanceView (Tailwind, icons, native tap hook).
- * Restore: copy this file over RecordAttendanceView.tsx (or: cp RecordAttendanceView.styled.backup.tsx RecordAttendanceView.tsx).
- */
-
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   IconCalendar,
@@ -17,6 +13,7 @@ import {
   IconUsers,
 } from "./icons";
 import type { MemberRosterStatus } from "@/lib/members-store";
+import { appendCellActivity } from "@/lib/cell-activity-store";
 
 export type AttendanceMemberRow = {
   id: string;
@@ -152,11 +149,29 @@ function InviteeRow({ row, onRemove, onPatch }: InviteeRowProps) {
 
 type RecordAttendanceViewProps = {
   homeHref: string;
+  cellSlug: string;
   members: AttendanceMemberRow[];
 };
 
-export function RecordAttendanceView({ homeHref, members }: RecordAttendanceViewProps) {
-  const [meetingDate, setMeetingDate] = useState("2026-05-27");
+function formatMeetingLabel(isoDate: string): string {
+  if (!isoDate) return "Meeting";
+  try {
+    const d = new Date(`${isoDate}T12:00:00`);
+    return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+  } catch {
+    return isoDate;
+  }
+}
+
+export function RecordAttendanceView({ homeHref, cellSlug, members }: RecordAttendanceViewProps) {
+  const router = useRouter();
+  const [meetingDate, setMeetingDate] = useState(() => {
+    try {
+      return new Date().toISOString().slice(0, 10);
+    } catch {
+      return "2026-05-12";
+    }
+  });
   const [search, setSearch] = useState("");
   const [presentIds, setPresentIds] = useState<Set<string>>(() => new Set());
   const [invitees, setInvitees] = useState<InviteeDraft[]>([]);
@@ -206,6 +221,22 @@ export function RecordAttendanceView({ homeHref, members }: RecordAttendanceView
   const selectAllRef = useNativeTapButton<HTMLButtonElement>(selectAllActive);
   const clearAllRef = useNativeTapButton<HTMLButtonElement>(clearAll);
   const addInviteeRef = useNativeTapButton<HTMLButtonElement>(addInvitee);
+
+  function handleSaveAttendance() {
+    const parts: string[] = [];
+    parts.push(`${presentCount} member${presentCount === 1 ? "" : "s"} present`);
+    if (inviteeCount > 0) {
+      parts.push(`${inviteeCount} invitee${inviteeCount === 1 ? "" : "s"}`);
+    }
+    appendCellActivity(cellSlug, {
+      icon: "attendance",
+      title: `Attendance · ${formatMeetingLabel(meetingDate)}`,
+      subtext: parts.join(" · "),
+    });
+    router.push(homeHref);
+  }
+
+  const saveRef = useNativeTapButton<HTMLButtonElement>(handleSaveAttendance);
 
   return (
     <div className="flex h-full min-h-0 w-full max-w-full flex-1 flex-col overflow-hidden overscroll-none bg-white font-sans text-black">
@@ -375,12 +406,13 @@ export function RecordAttendanceView({ homeHref, members }: RecordAttendanceView
           >
             Cancel
           </Link>
-          <Link
-            href={homeHref}
-            className="block min-h-12 w-full touch-manipulation rounded-lg bg-[#0B0E14] py-3 text-center text-sm font-bold text-white no-underline transition hover:bg-[#141922] active:bg-[#141922] sm:flex-1"
+          <button
+            ref={saveRef}
+            type="button"
+            className="block min-h-12 w-full touch-manipulation rounded-lg bg-[#0B0E14] py-3 text-center text-sm font-bold text-white transition hover:bg-[#141922] active:bg-[#141922] sm:flex-1"
           >
             Save Attendance
-          </Link>
+          </button>
         </div>
       </footer>
     </div>

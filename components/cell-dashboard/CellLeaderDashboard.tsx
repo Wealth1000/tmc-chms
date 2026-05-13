@@ -234,21 +234,27 @@ export function CellLeaderDashboard({
                 Recent Activity
               </h2>
               <div className="overflow-hidden rounded-none border border-neutral-200 bg-white">
-                <ul className="divide-y divide-neutral-100">
-                  {activities.map((item) => (
-                    <li key={item.id} className="flex gap-3 px-4 py-3.5 lg:px-5 lg:py-4">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-neutral-100 lg:h-10 lg:w-10">
-                        <ActivityIcon kind={item.icon} />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium leading-snug text-black lg:text-[15px]">
-                          {item.title}
-                        </p>
-                        <p className="mt-0.5 text-xs text-[#6B7280] lg:text-sm">{item.subtext}</p>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
+                {activities.length === 0 ? (
+                  <p className="px-4 py-8 text-center text-sm text-[#6B7280] lg:px-5">
+                    No recent activity yet. Adding members or saving attendance will appear here.
+                  </p>
+                ) : (
+                  <ul className="divide-y divide-neutral-100">
+                    {activities.map((item) => (
+                      <li key={item.id} className="flex gap-3 px-4 py-3.5 lg:px-5 lg:py-4">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-neutral-100 lg:h-10 lg:w-10">
+                          <ActivityIcon kind={item.icon} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium leading-snug text-black lg:text-[15px]">
+                            {item.title}
+                          </p>
+                          <p className="mt-0.5 text-xs text-[#6B7280] lg:text-sm">{item.subtext}</p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </section>
           </div>

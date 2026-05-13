@@ -24,7 +24,7 @@ export default async function AddMemberPage({ searchParams }: PageProps) {
 
   return (
     <div className="flex h-full min-h-0 w-full max-w-full flex-1 flex-col overflow-hidden">
-      <AddMemberForm homeHref={cellDashboardHref(cell)} />
+      <AddMemberForm cellSlug={cell} homeHref={cellDashboardHref(cell)} />
     </div>
   );
 }
