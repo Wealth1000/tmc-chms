@@ -271,6 +271,13 @@ export function AdminReportsDashboard({ cellRows }: { cellRows: CellGroupRow[] }
         <p className="mt-1 text-sm text-neutral-600 lg:text-base">
           Comprehensive analytics and insights across all cell groups
         </p>
+        <Link
+          href="/admin/attendance-results"
+          className="mt-3 inline-flex items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-950 no-underline transition hover:bg-sky-100 touch-manipulation"
+        >
+          <IconCalendar className="h-4 w-4 shrink-0" />
+          Look up attendance by date or event name →
+        </Link>
       </div>
 
       {/* Summary strip */}

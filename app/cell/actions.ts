@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import type { CellLeaderEditableInfo } from "@/lib/cell-info-store";
+import { revalidateCellSlugPaths } from "@/lib/revalidate-cell-paths";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { applySaveCellLeaderDetails } from "@/lib/sync/apply-cell-mutations";
 
@@ -17,8 +18,7 @@ export async function saveCellLeaderDetails(
     return { error: r.error };
   }
 
-  revalidatePath("/cell");
-  revalidatePath("/cell/edit");
+  revalidateCellSlugPaths(cellSlug);
   revalidatePath("/account/profile");
   return { success: true };
 }

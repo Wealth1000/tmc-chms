@@ -12,21 +12,45 @@ export function effectiveLeaderCellSlug(profile: AppProfile | null): string | nu
   return s ? s : null;
 }
 
-export async function fetchAppProfile(
+export type ProfileFetchFailure =
+  | { kind: "missing_row" }
+  | { kind: "invalid_role"; role: string }
+  | { kind: "query_error"; message: string };
+
+/** Same as `fetchAppProfile` but explains why login might fail even when a row exists in the table editor. */
+export async function fetchAppProfileOrFail(
   supabase: SupabaseClient,
   userId: string,
-): Promise<AppProfile | null> {
+): Promise<{ ok: true; profile: AppProfile } | { ok: false; failure: ProfileFetchFailure }> {
   const { data, error } = await supabase
     .from("profiles")
     .select("role, cell_slug")
     .eq("id", userId)
     .maybeSingle();
 
-  if (error || !data) return null;
-  const role = data.role as string;
-  if (role !== "admin" && role !== "leader") return null;
+  if (error) {
+    return { ok: false, failure: { kind: "query_error", message: error.message } };
+  }
+  if (!data) {
+    return { ok: false, failure: { kind: "missing_row" } };
+  }
+  const role = String(data.role ?? "");
+  if (role !== "admin" && role !== "leader") {
+    return { ok: false, failure: { kind: "invalid_role", role } };
+  }
   return {
-    role,
-    cell_slug: typeof data.cell_slug === "string" ? data.cell_slug : null,
+    ok: true,
+    profile: {
+      role: role as AppProfile["role"],
+      cell_slug: typeof data.cell_slug === "string" ? data.cell_slug : null,
+    },
   };
+}
+
+export async function fetchAppProfile(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<AppProfile | null> {
+  const r = await fetchAppProfileOrFail(supabase, userId);
+  return r.ok ? r.profile : null;
 }

@@ -34,16 +34,51 @@ function meetingSchedule(row: Pick<CellDbRow, "meeting_day" | "meeting_time">): 
   return `${day} at ${time}`;
 }
 
+type LeaderDisplay = { name: string; email: string };
+
+export async function fetchLeaderDisplayMap(
+  supabase: SupabaseClient,
+  leaderIds: string[],
+): Promise<Map<string, LeaderDisplay>> {
+  const map = new Map<string, LeaderDisplay>();
+  const ids = [...new Set(leaderIds)].filter(Boolean);
+  if (!ids.length) return map;
+
+  const { data: rpcRows, error: rpcErr } = await supabase.rpc("get_cell_leader_snapshots", {
+    p_ids: ids,
+  });
+
+  if (!rpcErr && rpcRows && Array.isArray(rpcRows)) {
+    for (const row of rpcRows as { user_id: string; full_name: string; email: string }[]) {
+      map.set(row.user_id, {
+        name: String(row.full_name ?? ""),
+        email: String(row.email ?? ""),
+      });
+    }
+    if (map.size > 0) {
+      return map;
+    }
+  }
+
+  const { data: profs } = await supabase.from("profiles").select("id, full_name").in("id", ids);
+  for (const p of profs ?? []) {
+    map.set(p.id as string, { name: String(p.full_name ?? ""), email: "" });
+  }
+  return map;
+}
+
 export function cellRowToGroupRow(
   cell: CellDbRow,
-  leaderDisplayName: string,
+  leader: LeaderDisplay,
   memberStats: CellStats,
 ): CellGroupRow {
+  const name = leader.name.trim();
+  const email = leader.email.trim();
   return {
     id: cell.slug,
     name: cell.name,
-    leader: leaderDisplayName.trim() || "—",
-    leaderEmail: "—",
+    leader: name || "—",
+    leaderEmail: email || "—",
     leaderPhone: "—",
     meetingSchedule: meetingSchedule(cell),
     meetingLocation: cell.meeting_location?.trim() ?? "",
@@ -80,15 +115,14 @@ export async function fetchAllCellGroupRows(supabase: SupabaseClient): Promise<C
   const rollup = await fetchMemberRollupMap(supabase);
 
   const ids = [...new Set(cells.map((c) => c.leader_user_id as string))];
-  const { data: profiles } = await supabase.from("profiles").select("id, full_name").in("id", ids);
-
-  const leaderName = new Map<string, string>();
-  for (const p of profiles ?? []) {
-    leaderName.set(p.id as string, String(p.full_name ?? ""));
-  }
+  const leaderMap = await fetchLeaderDisplayMap(supabase, ids);
 
   return (cells as CellDbRow[]).map((c) =>
-    cellRowToGroupRow(c, leaderName.get(c.leader_user_id) ?? "", rollup.get(c.slug) ?? emptyStats()),
+    cellRowToGroupRow(
+      c,
+      leaderMap.get(c.leader_user_id) ?? { name: "", email: "" },
+      rollup.get(c.slug) ?? emptyStats(),
+    ),
   );
 }
 
@@ -99,12 +133,9 @@ export async function fetchCellGroupRowBySlug(
   const row = await fetchCellDbRow(supabase, slug);
   if (!row) return null;
   const rollup = await fetchMemberRollupMap(supabase);
-  const { data: prof } = await supabase
-    .from("profiles")
-    .select("full_name")
-    .eq("id", row.leader_user_id)
-    .maybeSingle();
-  return cellRowToGroupRow(row, String(prof?.full_name ?? ""), rollup.get(slug) ?? emptyStats());
+  const leaderMap = await fetchLeaderDisplayMap(supabase, [row.leader_user_id]);
+  const leader = leaderMap.get(row.leader_user_id) ?? { name: "", email: "" };
+  return cellRowToGroupRow(row, leader, rollup.get(slug) ?? emptyStats());
 }
 
 export type ResolvedCellLeaderDashboard = {

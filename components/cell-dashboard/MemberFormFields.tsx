@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useMemo } from "react";
 import type { FoundationSchoolId, MemberRosterStatus } from "@/lib/members-store";
 import {
   IconActivity,
@@ -66,6 +67,10 @@ export function MemberFormFields({
 }: MemberFormFieldsProps) {
   const fName = `foundation-${formInstanceId}`;
   const sName = `memberStatus-${formInstanceId}`;
+  const todayIsoLocal = useMemo(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }, []);
 
   return (
     <div className="w-full max-w-full py-6 pb-8 lg:py-8 lg:pb-10">
@@ -121,20 +126,18 @@ export function MemberFormFields({
           <div>
             <FieldLabel>Date of Birth *</FieldLabel>
             <InputShell>
-              <span className="flex items-center border-r border-neutral-100 px-3 text-neutral-400">
+              <span className="pointer-events-none flex shrink-0 items-center border-r border-neutral-100 px-3 text-neutral-400">
                 <IconCalendar />
               </span>
               <input
-                type="text"
-                inputMode="numeric"
-                placeholder="mm / dd / yyyy"
+                type="date"
+                autoComplete="bday"
+                min="1900-01-01"
+                max={todayIsoLocal}
                 value={values.dateOfBirth}
                 onChange={(e) => onChange({ dateOfBirth: e.target.value })}
-                className="min-w-0 flex-1 border-0 bg-transparent px-3 py-2.5 text-sm outline-none placeholder:text-neutral-400"
+                className="min-h-[2.75rem] min-w-0 flex-1 border-0 bg-transparent px-3 py-2 text-sm outline-none [color-scheme:light]"
               />
-              <span className="flex items-center border-l border-neutral-100 px-3 text-neutral-400">
-                <IconCalendar />
-              </span>
             </InputShell>
           </div>
           <div>

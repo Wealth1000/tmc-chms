@@ -22,6 +22,9 @@ function validateMemberForm(v: MemberFormValues): string | null {
   if (!v.email.trim()) return "Please enter an email address.";
   if (!v.email.includes("@")) return "Please enter a valid email address.";
   if (!v.dateOfBirth.trim()) return "Please enter date of birth.";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v.dateOfBirth.trim())) {
+    return "Please choose date of birth using the calendar.";
+  }
   if (!v.area.trim()) return "Please enter area / residence.";
   if (!v.occupation.trim()) return "Please enter occupation.";
   return null;

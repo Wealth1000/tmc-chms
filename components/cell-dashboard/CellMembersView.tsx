@@ -22,6 +22,7 @@ import {
 } from "@/lib/cell-leader-links";
 import {
   parseMemberListFilter,
+  isCellLeaderRosterEntry,
   type MemberListFilter,
   type MemberRecord,
 } from "@/lib/members-store";
@@ -35,6 +36,10 @@ function statusDotClass(status: MemberRecord["memberStatus"]) {
     default:
       return "bg-red-500";
   }
+}
+
+function leaderBadgeClass() {
+  return "border-violet-700 bg-violet-700 text-white";
 }
 
 function statusBadgeClass(status: MemberRecord["memberStatus"]) {
@@ -96,7 +101,12 @@ export function CellMembersView({ cellSlug, members }: CellMembersViewProps) {
           m.occupation.toLowerCase().includes(q),
       );
     }
-    return [...list].sort((a, b) => a.fullName.localeCompare(b.fullName));
+    return [...list].sort((a, b) => {
+      const al = isCellLeaderRosterEntry(a);
+      const bl = isCellLeaderRosterEntry(b);
+      if (al !== bl) return al ? -1 : 1;
+      return a.fullName.localeCompare(b.fullName);
+    });
   }, [filter, search, cellSlug, members]);
 
   return (
@@ -168,53 +178,67 @@ export function CellMembersView({ cellSlug, members }: CellMembersViewProps) {
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-none px-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] pt-4 lg:px-8 lg:pb-6 lg:pt-5">
           <ul className="flex flex-col gap-3">
-            {filtered.map((m) => (
-              <li key={m.id}>
-                <Link
-                  href={cellMemberEditHref(cellSlug, m.id)}
-                  prefetch
-                  className="flex touch-manipulation gap-3 rounded-lg border border-neutral-200 bg-white p-4 text-left shadow-sm no-underline transition hover:border-neutral-300 hover:shadow-md active:bg-neutral-50/80"
-                  aria-label={`Edit ${m.fullName}`}
-                >
-                  <span
-                    className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${statusDotClass(m.memberStatus)}`}
-                    aria-hidden
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="font-semibold text-black">{m.fullName}</p>
-                      <IconChevronRight className="mt-0.5 h-5 w-5 shrink-0 text-neutral-300" />
-                    </div>
-                    <p className="mt-2 flex items-center gap-2 text-xs text-neutral-500">
-                      <IconMail className="h-3.5 w-3.5 shrink-0" />
-                      <span className="truncate">{m.email}</span>
-                    </p>
-                    {m.phone.trim() ? (
-                      <p className="mt-1 flex items-center gap-2 text-xs text-neutral-500">
-                        <IconPhone className="h-3.5 w-3.5 shrink-0" />
-                        <span className="truncate">{m.phone}</span>
-                      </p>
-                    ) : null}
-                    <p className="mt-1 flex items-center gap-2 text-xs text-neutral-500">
-                      {m.occupation.startsWith("Student") ? (
-                        <IconBriefcase className="h-3.5 w-3.5 shrink-0" />
-                      ) : (
-                        <IconBuilding className="h-3.5 w-3.5 shrink-0" />
-                      )}
-                      <span className="truncate">{m.occupation}</span>
-                    </p>
+            {filtered.map((m) => {
+              const isLeader = isCellLeaderRosterEntry(m);
+              const href = isLeader ? "/account/profile" : cellMemberEditHref(cellSlug, m.id);
+              const aria = isLeader ? `View profile for ${m.fullName}` : `Edit ${m.fullName}`;
+              return (
+                <li key={m.id}>
+                  <Link
+                    href={href}
+                    prefetch={!isLeader}
+                    className="flex touch-manipulation gap-3 rounded-lg border border-neutral-200 bg-white p-4 text-left shadow-sm no-underline transition hover:border-neutral-300 hover:shadow-md active:bg-neutral-50/80"
+                    aria-label={aria}
+                  >
                     <span
-                      className={`mt-3 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold capitalize ${statusBadgeClass(m.memberStatus)}`}
-                    >
-                      <span
-                        className={`h-1.5 w-1.5 rounded-full ${statusDotClass(m.memberStatus)}`}
-                      />
-                      {m.memberStatus}
-                    </span>
-                  </div>
-                </Link>
-              </li>
-            ))}
+                      className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${statusDotClass(m.memberStatus)}`}
+                      aria-hidden
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="font-semibold text-black">{m.fullName}</p>
+                        <IconChevronRight className="mt-0.5 h-5 w-5 shrink-0 text-neutral-300" />
+                      </div>
+                      <p className="mt-2 flex items-center gap-2 text-xs text-neutral-500">
+                        <IconMail className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">{m.email}</span>
+                      </p>
+                      {m.phone.trim() ? (
+                        <p className="mt-1 flex items-center gap-2 text-xs text-neutral-500">
+                          <IconPhone className="h-3.5 w-3.5 shrink-0" />
+                          <span className="truncate">{m.phone}</span>
+                        </p>
+                      ) : null}
+                      <p className="mt-1 flex items-center gap-2 text-xs text-neutral-500">
+                        {m.occupation.startsWith("Student") ? (
+                          <IconBriefcase className="h-3.5 w-3.5 shrink-0" />
+                        ) : (
+                          <IconBuilding className="h-3.5 w-3.5 shrink-0" />
+                        )}
+                        <span className="truncate">{m.occupation}</span>
+                      </p>
+                      <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                        {isLeader ? (
+                          <span
+                            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide ${leaderBadgeClass()}`}
+                          >
+                            LEADER
+                          </span>
+                        ) : null}
+                        <span
+                          className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold capitalize ${statusBadgeClass(m.memberStatus)}`}
+                        >
+                          <span
+                            className={`h-1.5 w-1.5 rounded-full ${statusDotClass(m.memberStatus)}`}
+                          />
+                          {m.memberStatus}
+                        </span>
+                      </div>
+                    </div>
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
           {filtered.length === 0 ? (
             <p className="py-10 text-center text-sm text-neutral-500">No members match this view.</p>

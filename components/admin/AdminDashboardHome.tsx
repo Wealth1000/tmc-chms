@@ -15,7 +15,6 @@ import { adminMembersHref } from "@/lib/admin-members-links";
 import { ADMIN_CELLS_DIRECTORY_PATH } from "@/lib/admin-cells-links";
 import {
   aggregateAdminStats,
-  buildAdminActivityFeed,
   type AdminActivityItem,
   type CellGroupRow,
 } from "@/lib/admin-cells-store";
@@ -46,11 +45,15 @@ function ActivityIcon({ item }: { item: AdminActivityItem }) {
 
 type StatusScope = "all" | "inactive" | "dormant";
 
-export function AdminDashboardHome({ cellRows }: { cellRows: CellGroupRow[] }) {
+export function AdminDashboardHome({
+  cellRows,
+  activityItems,
+}: {
+  cellRows: CellGroupRow[];
+  activityItems: AdminActivityItem[];
+}) {
   const rows = cellRows;
   const stats = aggregateAdminStats(rows);
-
-  const activityItems = useMemo(() => buildAdminActivityFeed(rows), [rows]);
 
   const [search, setSearch] = useState("");
   const [cellScope, setCellScope] = useState<string>("all");

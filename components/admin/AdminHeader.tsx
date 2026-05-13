@@ -3,16 +3,18 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { HeaderProfileMenu } from "@/components/cell-dashboard/HeaderProfileMenu";
-import { IconBarChart, IconLayoutGrid } from "@/components/cell-dashboard/icons";
+import { IconBarChart, IconCalendar, IconLayoutGrid } from "@/components/cell-dashboard/icons";
 
 export function AdminHeader() {
   const pathname = usePathname();
+  const isAttendanceLookup = pathname.startsWith("/admin/attendance-results");
   const isReports = pathname.startsWith("/admin/reports");
   const isDashboard =
     (pathname === "/admin" ||
       pathname.startsWith("/admin/members") ||
       pathname.startsWith("/admin/cells")) &&
-    !isReports;
+    !isReports &&
+    !isAttendanceLookup;
 
   return (
     <header className="relative z-30 shrink-0 overflow-visible border-b border-white/10 bg-[#0B0E14] px-4 py-3 lg:px-8">
@@ -45,6 +47,15 @@ export function AdminHeader() {
             >
               <IconBarChart className="h-4 w-4" />
               <span className="hidden sm:inline">Reports</span>
+            </Link>
+            <Link
+              href="/admin/attendance-results"
+              className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium no-underline transition touch-manipulation ${
+                isAttendanceLookup ? "bg-white text-black" : "text-white/75 hover:bg-white/10"
+              }`}
+            >
+              <IconCalendar className="h-4 w-4" />
+              <span className="hidden sm:inline">Lookup</span>
             </Link>
           </nav>
           <HeaderProfileMenu />

@@ -28,12 +28,31 @@ export const EMPTY_MEMBER_FORM: MemberFormValues = {
   memberStatus: "active",
 };
 
+/**
+ * Stored `date_of_birth` is free text; `<input type="date">` only accepts `yyyy-MM-dd`.
+ * Returns a valid date string for the control, or "" so the user can pick from the native calendar.
+ */
+export function dateOfBirthToDateInputValue(raw: string): string {
+  const s = raw.trim();
+  if (!s) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const mdy = s.match(/^(\d{1,2})\s*\/\s*(\d{1,2})\s*\/\s*(\d{4})$/);
+  if (mdy) {
+    const mm = mdy[1].padStart(2, "0");
+    const dd = mdy[2].padStart(2, "0");
+    const yyyy = mdy[3];
+    const iso = `${yyyy}-${mm}-${dd}`;
+    return /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso : "";
+  }
+  return "";
+}
+
 export function memberRecordToFormValues(m: MemberRecord): MemberFormValues {
   return {
     fullName: m.fullName,
     email: m.email,
     phone: m.phone,
-    dateOfBirth: m.dateOfBirth,
+    dateOfBirth: dateOfBirthToDateInputValue(m.dateOfBirth),
     area: m.area,
     isStudent: m.isStudent,
     occupation: m.occupation,

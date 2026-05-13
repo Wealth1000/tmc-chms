@@ -24,7 +24,12 @@ import {
 } from "@/lib/admin-cell-detail";
 import { adminMemberEditHref } from "@/lib/admin-members-links";
 import type { CellGroupRow } from "@/lib/admin-cells-store";
-import type { MemberListFilter, MemberRecord, MemberRosterStatus } from "@/lib/members-store";
+import {
+  isCellLeaderRosterEntry,
+  type MemberListFilter,
+  type MemberRecord,
+  type MemberRosterStatus,
+} from "@/lib/members-store";
 
 const cardClass =
   "rounded-lg border border-neutral-200 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)]";
@@ -40,10 +45,14 @@ function rosterDotClass(status: MemberRosterStatus) {
   }
 }
 
+function leaderRosterBadgeClass() {
+  return "border-violet-700 bg-violet-700 text-white";
+}
+
 function rosterBadgeClass(status: MemberRosterStatus) {
   switch (status) {
     case "active":
-      return "border-neutral-900 bg-neutral-900 text-white";
+      return "border-emerald-200 bg-emerald-50 text-emerald-900";
     case "inactive":
       return "border-amber-200 bg-amber-50 text-amber-900";
     default:
@@ -58,6 +67,34 @@ const filterDefs: { id: MemberListFilter; label: string }[] = [
   { id: "dormant", label: "Dormant" },
 ];
 
+function isLikelyEmail(value: string): boolean {
+  const v = value.trim();
+  if (!v || v === "—") return false;
+  return v.includes("@");
+}
+
+function memberPhoneDisplay(m: MemberRecord): string {
+  if (isCellLeaderRosterEntry(m)) return "—";
+  const p = m.phone?.trim();
+  if (p) return p;
+  return demoPhoneForMember(m.id);
+}
+
+function memberJoinedLabel(m: MemberRecord): string {
+  if (m.createdAt) {
+    try {
+      return `Joined ${new Date(m.createdAt).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })}`;
+    } catch {
+      /* fall through */
+    }
+  }
+  return demoJoinedLabel(m.id);
+}
+
 type AdminCellGroupDetailProps = {
   cell: CellGroupRow;
   members: MemberRecord[];
@@ -67,7 +104,12 @@ export function AdminCellGroupDetail({ cell, members }: AdminCellGroupDetailProp
   const [filter, setFilter] = useState<MemberListFilter>("all");
 
   const filteredMembers = useMemo(() => {
-    let list = [...members].sort((a, b) => a.fullName.localeCompare(b.fullName));
+    let list = [...members].sort((a, b) => {
+      const al = isCellLeaderRosterEntry(a);
+      const bl = isCellLeaderRosterEntry(b);
+      if (al !== bl) return al ? -1 : 1;
+      return a.fullName.localeCompare(b.fullName);
+    });
     if (filter !== "all") {
       list = list.filter((m) => m.memberStatus === filter);
     }
@@ -119,12 +161,16 @@ export function AdminCellGroupDetail({ cell, members }: AdminCellGroupDetailProp
               <ul className="mt-3 space-y-2 text-sm text-neutral-600">
                 <li className="flex min-w-0 items-start gap-2">
                   <IconMail className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" />
-                  <a
-                    href={`mailto:${cell.leaderEmail}`}
-                    className="min-w-0 break-all font-medium text-neutral-800 underline-offset-2 hover:underline"
-                  >
-                    {cell.leaderEmail}
-                  </a>
+                  {isLikelyEmail(cell.leaderEmail) ? (
+                    <a
+                      href={`mailto:${cell.leaderEmail.trim()}`}
+                      className="min-w-0 break-all font-medium text-neutral-800 underline-offset-2 hover:underline"
+                    >
+                      {cell.leaderEmail}
+                    </a>
+                  ) : (
+                    <span className="min-w-0 break-all font-medium text-neutral-800">{cell.leaderEmail}</span>
+                  )}
                 </li>
                 <li className="flex items-start gap-2">
                   <IconPhone className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" />
@@ -210,6 +256,7 @@ export function AdminCellGroupDetail({ cell, members }: AdminCellGroupDetailProp
               <ul className="divide-y divide-neutral-100">
                 {filteredMembers.map((m) => {
                   const fs = foundationSchoolBadge(m.foundationStatus);
+                  const isLeader = isCellLeaderRosterEntry(m);
                   return (
                     <li key={m.id} className="px-4 py-4 sm:px-5">
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -219,12 +266,23 @@ export function AdminCellGroupDetail({ cell, members }: AdminCellGroupDetailProp
                               className={`h-2 w-2 shrink-0 rounded-full ${rosterDotClass(m.memberStatus)}`}
                               aria-hidden
                             />
-                            <Link
-                              href={adminMemberEditHref(m.id, "all")}
-                              className="text-base font-semibold text-black underline-offset-2 hover:underline"
-                            >
-                              {m.fullName}
-                            </Link>
+                            {isLeader ? (
+                              <span className="text-base font-semibold text-black">{m.fullName}</span>
+                            ) : (
+                              <Link
+                                href={adminMemberEditHref(m.id, "all")}
+                                className="text-base font-semibold text-black underline-offset-2 hover:underline"
+                              >
+                                {m.fullName}
+                              </Link>
+                            )}
+                            {isLeader ? (
+                              <span
+                                className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${leaderRosterBadgeClass()}`}
+                              >
+                                LEADER
+                              </span>
+                            ) : null}
                             <span
                               className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${rosterBadgeClass(m.memberStatus)}`}
                             >
@@ -247,12 +305,12 @@ export function AdminCellGroupDetail({ cell, members }: AdminCellGroupDetailProp
                             </span>
                             <span className="inline-flex items-center gap-1.5">
                               <IconPhone className="h-3.5 w-3.5 shrink-0 text-neutral-400" />
-                              {demoPhoneForMember(m.id)}
+                              {memberPhoneDisplay(m)}
                             </span>
                           </div>
                           <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-neutral-500">
                             <IconCalendar className="h-3.5 w-3.5 shrink-0" />
-                            {demoJoinedLabel(m.id)}
+                            {isLeader ? "Leads this cell" : memberJoinedLabel(m)}
                           </p>
                         </div>
                       </div>

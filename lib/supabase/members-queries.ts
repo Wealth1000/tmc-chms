@@ -30,6 +30,16 @@ export async function fetchMemberRollupMap(
   supabase: SupabaseClient,
 ): Promise<Map<string, CellStats>> {
   const map = new Map<string, CellStats>();
+
+  const { data: cells, error: cellsErr } = await supabase.from("cells").select("slug");
+  if (!cellsErr && cells?.length) {
+    for (const c of cells) {
+      const slug = String((c as { slug?: string }).slug ?? "").trim();
+      if (!slug) continue;
+      map.set(slug, { totalMembers: 1, active: 1, inactive: 0, dormant: 0 });
+    }
+  }
+
   const { data, error } = await supabase.from("members").select("cell_slug, member_status");
   if (error || !data?.length) return map;
 
@@ -76,6 +86,7 @@ export function memberRowToRecord(row: MemberDbRow): MemberRecord {
     fullName: row.full_name,
     email: row.email,
     phone: row.phone ?? "",
+    createdAt: row.created_at,
     dateOfBirth: row.date_of_birth ?? "",
     area: row.area ?? "",
     isStudent: Boolean(row.is_student),
@@ -92,7 +103,7 @@ export async function fetchMembersForCell(
   const { data, error } = await supabase
     .from("members")
     .select(
-      "id, cell_slug, full_name, email, phone, date_of_birth, area, is_student, occupation, foundation_status, member_status",
+      "id, cell_slug, full_name, email, phone, date_of_birth, area, is_student, occupation, foundation_status, member_status, created_at",
     )
     .eq("cell_slug", cellSlug)
     .order("full_name", { ascending: true });
@@ -108,7 +119,7 @@ export async function fetchMemberById(
   const { data, error } = await supabase
     .from("members")
     .select(
-      "id, cell_slug, full_name, email, phone, date_of_birth, area, is_student, occupation, foundation_status, member_status",
+      "id, cell_slug, full_name, email, phone, date_of_birth, area, is_student, occupation, foundation_status, member_status, created_at",
     )
     .eq("id", memberId)
     .maybeSingle();

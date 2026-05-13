@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { readSupabaseServerOrEdgeEnv } from "@/lib/supabase/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ensureLeaderCellForCurrentUser } from "@/lib/supabase/ensure-leader-cell";
-import { effectiveLeaderCellSlug, fetchAppProfile } from "@/lib/supabase/profile";
+import { effectiveLeaderCellSlug, fetchAppProfileOrFail } from "@/lib/supabase/profile";
 
 export async function login(_prev: string | null, formData: FormData): Promise<string | null> {
   if (!readSupabaseServerOrEdgeEnv()) {
@@ -18,30 +18,54 @@ export async function login(_prev: string | null, formData: FormData): Promise<s
   }
 
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) {
     return "Invalid email or password.";
   }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const session = signInData.session;
+  const user = signInData.user ?? session?.user;
   if (!user) {
     return "Could not load your session.";
   }
-
-  let profile = await fetchAppProfile(supabase, user.id);
-  if (!profile) {
-    return "No profile row for this user. Create one in Supabase (see supabase/migrations).";
+  if (!session) {
+    return "No active session (e.g. email not confirmed). Confirm your email in Supabase Auth, then try again.";
   }
+
+  const { error: setSessionErr } = await supabase.auth.setSession({
+    access_token: session.access_token,
+    refresh_token: session.refresh_token,
+  });
+  if (setSessionErr) {
+    console.error("setSession after login:", setSessionErr.message);
+  }
+
+  const { error: ensureProfileErr } = await supabase.rpc("ensure_auth_user_profile");
+  if (ensureProfileErr) {
+    console.error("ensure_auth_user_profile:", ensureProfileErr.message);
+  }
+
+  let profileResult = await fetchAppProfileOrFail(supabase, user.id);
+  if (!profileResult.ok) {
+    const f = profileResult.failure;
+    if (f.kind === "invalid_role") {
+      return `Your profile row exists, but role must be exactly "admin" or "leader" (got "${f.role || "empty"}"). Update public.profiles.role for user id ${user.id}.`;
+    }
+    if (f.kind === "query_error") {
+      return `Could not read your profile (${f.message}). If this mentions RLS or JWT, the session may not be attached yet—try again, or confirm NEXT_PUBLIC_SUPABASE_* keys match your project.`;
+    }
+    return (
+      `No profile row where id matches your auth user (${user.id}). ` +
+      "In Table Editor, profiles.id must equal that UUID from Authentication → Users. " +
+      "Apply migration `0008_ensure_auth_user_profile_rpc.sql` to auto-create the row on login, or insert the row manually."
+    );
+  }
+  let profile = profileResult.profile;
 
   if (profile.role === "leader" && !effectiveLeaderCellSlug(profile)) {
     await ensureLeaderCellForCurrentUser(supabase);
-    profile = await fetchAppProfile(supabase, user.id);
-  }
-
-  if (!profile) {
-    return "No profile row for this user. Create one in Supabase (see supabase/migrations).";
+    const again = await fetchAppProfileOrFail(supabase, user.id);
+    profile = again.ok ? again.profile : profile;
   }
 
   if (profile.role === "admin") {

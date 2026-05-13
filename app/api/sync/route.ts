@@ -7,6 +7,7 @@ import {
   type SyncQueueOp,
 } from "@/lib/offline/sync-types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { revalidateCellSlugPaths } from "@/lib/revalidate-cell-paths";
 import { applySaveCellLeaderDetails, applyUpdateMyCellName } from "@/lib/sync/apply-cell-mutations";
 
 type SyncRequestBody = {
@@ -39,6 +40,9 @@ export async function POST(request: Request) {
     revalidatePath("/account/profile");
     revalidatePath("/cell");
     revalidatePath("/cell/edit");
+    revalidatePath("/admin");
+    revalidatePath("/admin/cells");
+    revalidatePath("/admin/reports");
     return NextResponse.json({ ok: true });
   }
 
@@ -53,8 +57,6 @@ export async function POST(request: Request) {
   if (!r.ok) {
     return NextResponse.json({ error: r.error }, { status: 400 });
   }
-  revalidatePath("/cell");
-  revalidatePath("/cell/edit");
-  revalidatePath("/account/profile");
+  revalidateCellSlugPaths(body.payload.cellSlug);
   return NextResponse.json({ ok: true });
 }

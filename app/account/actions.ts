@@ -21,5 +21,8 @@ export async function updateMyCellName(
   revalidatePath("/account/profile");
   revalidatePath("/cell");
   revalidatePath("/cell/edit");
+  revalidatePath("/admin");
+  revalidatePath("/admin/cells");
+  revalidatePath("/admin/reports");
   return { success: true };
 }

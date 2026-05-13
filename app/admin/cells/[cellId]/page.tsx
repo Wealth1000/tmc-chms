@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { AdminCellGroupDetail } from "@/components/admin/AdminCellGroupDetail";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { fetchCellGroupRowBySlug } from "@/lib/supabase/cells-queries";
-import { fetchMembersForCell } from "@/lib/supabase/members-queries";
+import { fetchCellRosterWithLeader } from "@/lib/supabase/cell-roster-queries";
 
 type PageProps = {
   params: Promise<{ cellId: string }>;
@@ -16,7 +16,7 @@ export default async function AdminCellDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  const members = await fetchMembersForCell(supabase, cellId);
+  const members = await fetchCellRosterWithLeader(supabase, cellId);
 
   return <AdminCellGroupDetail cell={cell} members={members} />;
 }
