@@ -3,8 +3,8 @@ import { EditMemberForm } from "@/components/cell-dashboard/EditMemberForm";
 import { cellMembersHref } from "@/lib/cell-leader-links";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { fetchCellDbRow } from "@/lib/supabase/cells-queries";
+import { fetchMemberById } from "@/lib/supabase/members-queries";
 import { firstSearchParam } from "@/lib/dev-login";
-import { getMemberById } from "@/lib/members-store";
 
 type PageProps = {
   params: Promise<{ memberId: string }>;
@@ -24,8 +24,8 @@ export default async function EditMemberPage({ params, searchParams }: PageProps
     redirect("/");
   }
 
-  const member = getMemberById(memberId);
-  if (!member) {
+  const member = await fetchMemberById(supabase, memberId);
+  if (!member || member.cellId !== cell) {
     notFound();
   }
 

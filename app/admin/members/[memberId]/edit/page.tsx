@@ -1,8 +1,10 @@
 import { notFound } from "next/navigation";
 import { EditMemberForm } from "@/components/cell-dashboard/EditMemberForm";
 import { adminMembersHref } from "@/lib/admin-members-links";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { fetchMemberById } from "@/lib/supabase/members-queries";
 import { firstSearchParam } from "@/lib/dev-login";
-import { getMemberById, parseMemberListFilter } from "@/lib/members-store";
+import { parseMemberListFilter } from "@/lib/members-store";
 
 type PageProps = {
   params: Promise<{ memberId: string }>;
@@ -12,7 +14,9 @@ type PageProps = {
 export default async function AdminEditMemberPage({ params, searchParams }: PageProps) {
   const [{ memberId }, sp] = await Promise.all([params, searchParams]);
   const filter = parseMemberListFilter(firstSearchParam(sp.filter) ?? null);
-  const member = getMemberById(memberId);
+
+  const supabase = await createSupabaseServerClient();
+  const member = await fetchMemberById(supabase, memberId);
   if (!member) {
     notFound();
   }

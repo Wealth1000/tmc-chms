@@ -2,13 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
+import { createMemberAction } from "@/app/members/actions";
 import { HelpFab } from "./HelpFab";
 import { IconChevronLeft } from "./icons";
 import { MemberFormFields } from "./MemberFormFields";
-import { EMPTY_MEMBER_FORM, formValuesToMemberPatch, type MemberFormValues } from "./member-form-values";
-import { appendCellActivity } from "@/lib/cell-activity-store";
-import { addMember } from "@/lib/members-store";
+import { EMPTY_MEMBER_FORM, type MemberFormValues } from "./member-form-values";
 
 export type AddMemberFormProps = {
   cellSlug: string;
@@ -35,6 +34,7 @@ export function AddMemberForm({
   onHelp,
 }: AddMemberFormProps) {
   const router = useRouter();
+  const submitLockRef = useRef(false);
   const [values, setValues] = useState<MemberFormValues>(EMPTY_MEMBER_FORM);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -44,36 +44,38 @@ export function AddMemberForm({
     setFormError(null);
   }, []);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (submitLockRef.current) return;
     const err = validateMemberForm(values);
     if (err) {
       setFormError(err);
       return;
     }
+
+    submitLockRef.current = true;
     setSubmitting(true);
-    try {
-      const patch = formValuesToMemberPatch(values);
-      const row = addMember({
-        cellId: cellSlug,
-        fullName: patch.fullName!.trim(),
-        email: patch.email!.trim(),
-        dateOfBirth: patch.dateOfBirth!.trim(),
-        area: patch.area!.trim(),
-        isStudent: patch.isStudent ?? false,
-        occupation: patch.occupation!.trim(),
-        foundationStatus: patch.foundationStatus ?? "yet_to_start",
-        memberStatus: patch.memberStatus ?? "active",
-      });
-      appendCellActivity(cellSlug, {
-        icon: "member-add",
-        title: `Added ${row.fullName}`,
-        subtext: "New member joined the cell",
-      });
-      router.push(homeHref);
-      router.refresh();
-    } finally {
+
+    const result = await createMemberAction(cellSlug, {
+      fullName: values.fullName.trim(),
+      email: values.email.trim(),
+      phone: values.phone.trim(),
+      dateOfBirth: values.dateOfBirth.trim(),
+      area: values.area.trim(),
+      isStudent: values.isStudent,
+      occupation: values.occupation.trim(),
+      foundationStatus: values.foundationStatus,
+      memberStatus: values.memberStatus,
+    });
+
+    if (!result.ok) {
+      submitLockRef.current = false;
       setSubmitting(false);
+      setFormError(result.error);
+      return;
     }
+
+    router.push(homeHref);
+    router.refresh();
   };
 
   return (
@@ -84,7 +86,7 @@ export function AddMemberForm({
         <div className="flex w-full max-w-full items-start gap-3">
           <Link
             href={homeHref}
-            className="mt-0.5 flex h-10 w-10 shrink-0 touch-manipulation items-center justify-center rounded-full text-white/90 transition hover:bg-white/10"
+            className={`mt-0.5 flex h-10 w-10 shrink-0 touch-manipulation items-center justify-center rounded-full text-white/90 transition hover:bg-white/10 ${submitting ? "pointer-events-none opacity-50" : ""}`}
             aria-label="Back"
           >
             <IconChevronLeft className="h-6 w-6" />
@@ -103,22 +105,24 @@ export function AddMemberForm({
           </p>
         ) : null}
 
-        <MemberFormFields formInstanceId="add" values={values} onChange={patch} />
+        <fieldset disabled={submitting} className="min-w-0 border-0 p-0">
+          <MemberFormFields formInstanceId="add" values={values} onChange={patch} />
+        </fieldset>
 
         <div className="sticky bottom-0 z-10 -mx-4 border-t border-neutral-200 bg-white/95 px-4 pb-[max(6.5rem,calc(env(safe-area-inset-bottom,0px)+5.5rem))] pt-4 backdrop-blur-sm lg:-mx-8 lg:px-8">
           <div className="flex w-full max-w-full gap-3">
             <Link
               href={homeHref}
               onClick={() => onCancel?.()}
-              className="flex h-12 min-h-12 flex-1 touch-manipulation items-center justify-center rounded-lg border border-neutral-300 bg-white text-sm font-semibold text-neutral-900 transition hover:bg-neutral-50"
+              className={`flex h-12 min-h-12 flex-1 touch-manipulation items-center justify-center rounded-lg border border-neutral-300 bg-white text-sm font-semibold text-neutral-900 transition hover:bg-neutral-50 ${submitting ? "pointer-events-none opacity-50" : ""}`}
             >
               Cancel
             </Link>
             <button
               type="button"
               disabled={submitting}
-              className="flex h-12 min-h-12 flex-1 touch-manipulation items-center justify-center rounded-lg bg-[#0B0E14] text-sm font-bold text-white transition hover:bg-[#141922] disabled:opacity-60"
-              onClick={handleSubmit}
+              className="flex h-12 min-h-12 flex-1 touch-manipulation items-center justify-center rounded-lg bg-[#0B0E14] text-sm font-bold text-white transition hover:bg-[#141922] disabled:pointer-events-none disabled:opacity-60"
+              onClick={() => void handleSubmit()}
             >
               {submitting ? "Adding…" : "Add Member"}
             </button>

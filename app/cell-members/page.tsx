@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { CellMembersView } from "@/components/cell-dashboard/CellMembersView";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { fetchCellDbRow } from "@/lib/supabase/cells-queries";
+import { fetchMembersForCell } from "@/lib/supabase/members-queries";
 import { firstSearchParam } from "@/lib/dev-login";
 
 function CellMembersFallback() {
@@ -31,10 +32,12 @@ export default async function CellMembersPage({ searchParams }: PageProps) {
     redirect("/");
   }
 
+  const members = await fetchMembersForCell(supabase, cell);
+
   return (
     <div className="flex h-full min-h-0 w-full max-w-full flex-1 flex-col overflow-hidden overscroll-none">
       <Suspense fallback={<CellMembersFallback />}>
-        <CellMembersView cellSlug={cell} />
+        <CellMembersView cellSlug={cell} members={members} />
       </Suspense>
     </div>
   );

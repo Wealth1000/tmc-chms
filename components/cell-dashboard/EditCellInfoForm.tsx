@@ -10,12 +10,15 @@ import {
   IconChevronDown,
   IconChevronLeft,
   IconClock,
+  IconClose,
   IconMapPin,
   IconUsers,
 } from "./icons";
 import type { CellLeaderEditableInfo } from "@/lib/cell-info-store";
 import { MEETING_DAY_OPTIONS } from "@/lib/cell-info-store";
 import { saveCellLeaderDetails } from "@/app/cell/actions";
+import { deleteMemberAction } from "@/app/members/actions";
+import type { MemberRecord } from "@/lib/members-store";
 import { useOfflineContext } from "@/components/offline/offline-context";
 import { enqueueSyncMutation } from "@/lib/offline/offline-db";
 
@@ -47,6 +50,7 @@ function InputShell({
 export type EditCellInfoFormProps = {
   cellId: string;
   initial: CellLeaderEditableInfo;
+  members: MemberRecord[];
   homeHref: string;
   onCancel?: () => void;
   onHelp?: () => void;
@@ -55,6 +59,7 @@ export type EditCellInfoFormProps = {
 export function EditCellInfoForm({
   cellId,
   initial,
+  members,
   homeHref,
   onCancel,
   onHelp,
@@ -63,6 +68,34 @@ export function EditCellInfoForm({
   const { online, refreshPendingCount } = useOfflineContext();
   const [values, setValues] = useState<CellLeaderEditableInfo>(initial);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [memberActionError, setMemberActionError] = useState<string | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+
+  const handleRemoveMember = useCallback(
+    async (m: MemberRecord) => {
+      setMemberActionError(null);
+      if (!online) {
+        window.alert("Connect to the internet to remove a member from the cell.");
+        return;
+      }
+      if (
+        !window.confirm(
+          `Remove ${m.fullName} from this cell? They will be removed from the roster and attendance history may lose links to this person.`,
+        )
+      ) {
+        return;
+      }
+      setRemovingId(m.id);
+      const res = await deleteMemberAction(m.id);
+      setRemovingId(null);
+      if (!res.ok) {
+        setMemberActionError(res.error);
+        return;
+      }
+      router.refresh();
+    },
+    [online, router],
+  );
 
   const patch = useCallback((p: Partial<CellLeaderEditableInfo>) => {
     setValues((v) => ({ ...v, ...p }));
@@ -129,6 +162,11 @@ export function EditCellInfoForm({
           {saveError ? (
             <p className="mb-6 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">
               {saveError}
+            </p>
+          ) : null}
+          {memberActionError ? (
+            <p className="mb-6 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">
+              {memberActionError}
             </p>
           ) : null}
           <section className="mb-10">
@@ -225,6 +263,44 @@ export function EditCellInfoForm({
                 </InputShell>
               </div>
             </div>
+          </section>
+
+          <section className="mb-10">
+            <div className="mb-4 flex items-center gap-2 text-base font-semibold text-neutral-900">
+              <IconUsers className="h-5 w-5 shrink-0 text-[#0B0E14]" />
+              Members in this cell
+            </div>
+            <p className="mb-4 text-sm text-neutral-600">
+              Remove someone from this cell’s roster (requires internet). This only removes their membership in this
+              cell.
+            </p>
+            {members.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-neutral-200 px-4 py-6 text-center text-sm text-neutral-500">
+                No members yet. Add members from the dashboard.
+              </p>
+            ) : (
+              <ul className="divide-y divide-neutral-100 rounded-lg border border-neutral-200">
+                {[...members]
+                  .sort((a, b) => a.fullName.localeCompare(b.fullName))
+                  .map((m) => (
+                    <li key={m.id} className="flex min-h-[52px] items-center gap-3 px-3 py-3 sm:px-4">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-black">{m.fullName}</p>
+                        <p className="truncate text-xs text-neutral-500">{m.email}</p>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={!online || removingId !== null}
+                        onClick={() => void handleRemoveMember(m)}
+                        className="inline-flex shrink-0 touch-manipulation items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-900 transition hover:bg-rose-100 disabled:pointer-events-none disabled:opacity-50"
+                      >
+                        <IconClose className="h-4 w-4" />
+                        {removingId === m.id ? "Removing…" : "Remove"}
+                      </button>
+                    </li>
+                  ))}
+              </ul>
+            )}
           </section>
         </div>
       </main>

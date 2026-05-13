@@ -7,6 +7,7 @@ import type {
 export type MemberFormValues = {
   fullName: string;
   email: string;
+  phone: string;
   dateOfBirth: string;
   area: string;
   isStudent: boolean;
@@ -18,6 +19,7 @@ export type MemberFormValues = {
 export const EMPTY_MEMBER_FORM: MemberFormValues = {
   fullName: "",
   email: "",
+  phone: "",
   dateOfBirth: "",
   area: "",
   isStudent: false,
@@ -30,6 +32,7 @@ export function memberRecordToFormValues(m: MemberRecord): MemberFormValues {
   return {
     fullName: m.fullName,
     email: m.email,
+    phone: m.phone,
     dateOfBirth: m.dateOfBirth,
     area: m.area,
     isStudent: m.isStudent,
@@ -45,6 +48,7 @@ export function formValuesToMemberPatch(
   return {
     fullName: v.fullName,
     email: v.email,
+    phone: v.phone,
     dateOfBirth: v.dateOfBirth,
     area: v.area,
     isStudent: v.isStudent,

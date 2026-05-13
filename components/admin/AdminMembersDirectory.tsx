@@ -78,6 +78,7 @@ export function AdminMembersDirectory({ initialMembers }: { initialMembers: Admi
         (m) =>
           m.fullName.toLowerCase().includes(q) ||
           m.email.toLowerCase().includes(q) ||
+          m.phone.toLowerCase().includes(q) ||
           m.occupation.toLowerCase().includes(q) ||
           m.cellName.toLowerCase().includes(q),
       );

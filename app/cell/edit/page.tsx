@@ -4,6 +4,7 @@ import { cellDashboardHref } from "@/lib/cell-leader-links";
 import { cellDbRowToEditableInfo } from "@/lib/cell-leader-editable-mapper";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { fetchCellDbRow } from "@/lib/supabase/cells-queries";
+import { fetchMembersForCell } from "@/lib/supabase/members-queries";
 import { firstSearchParam } from "@/lib/dev-login";
 
 type PageProps = {
@@ -30,6 +31,7 @@ export default async function CellEditInfoPage({ searchParams }: PageProps) {
     .maybeSingle();
 
   const initial = cellDbRowToEditableInfo(row, String(prof?.full_name ?? ""));
+  const members = await fetchMembersForCell(supabase, cell);
 
   return (
     <div className="flex h-full min-h-0 w-full max-w-full flex-1 flex-col overflow-hidden">
@@ -37,6 +39,7 @@ export default async function CellEditInfoPage({ searchParams }: PageProps) {
         key={cell}
         cellId={cell}
         initial={initial}
+        members={members}
         homeHref={cellDashboardHref(cell)}
       />
     </div>

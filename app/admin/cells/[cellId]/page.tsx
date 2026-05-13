@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { AdminCellGroupDetail } from "@/components/admin/AdminCellGroupDetail";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { fetchCellGroupRowBySlug } from "@/lib/supabase/cells-queries";
-import { listMembers } from "@/lib/members-store";
+import { fetchMembersForCell } from "@/lib/supabase/members-queries";
 
 type PageProps = {
   params: Promise<{ cellId: string }>;
@@ -16,9 +16,7 @@ export default async function AdminCellDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  const members = listMembers()
-    .filter((m) => m.cellId === cellId)
-    .sort((a, b) => a.fullName.localeCompare(b.fullName));
+  const members = await fetchMembersForCell(supabase, cellId);
 
   return <AdminCellGroupDetail cell={cell} members={members} />;
 }

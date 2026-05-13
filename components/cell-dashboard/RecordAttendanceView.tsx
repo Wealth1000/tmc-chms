@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   IconCalendar,
   IconChevronLeft,
@@ -13,7 +13,7 @@ import {
   IconUsers,
 } from "./icons";
 import type { MemberRosterStatus } from "@/lib/members-store";
-import { appendCellActivity } from "@/lib/cell-activity-store";
+import { saveAttendanceAction } from "@/app/members/actions";
 
 export type AttendanceMemberRow = {
   id: string;
@@ -153,18 +153,10 @@ type RecordAttendanceViewProps = {
   members: AttendanceMemberRow[];
 };
 
-function formatMeetingLabel(isoDate: string): string {
-  if (!isoDate) return "Meeting";
-  try {
-    const d = new Date(`${isoDate}T12:00:00`);
-    return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
-  } catch {
-    return isoDate;
-  }
-}
-
 export function RecordAttendanceView({ homeHref, cellSlug, members }: RecordAttendanceViewProps) {
   const router = useRouter();
+  const saveLockRef = useRef(false);
+  const [savingAttendance, setSavingAttendance] = useState(false);
   const [meetingDate, setMeetingDate] = useState(() => {
     try {
       return new Date().toISOString().slice(0, 10);
@@ -188,6 +180,7 @@ export function RecordAttendanceView({ homeHref, cellSlug, members }: RecordAtte
   const headcountTotal = presentCount + inviteeCount;
 
   function toggleMember(id: string) {
+    if (saveLockRef.current) return;
     setPresentIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -197,24 +190,29 @@ export function RecordAttendanceView({ homeHref, cellSlug, members }: RecordAtte
   }
 
   function selectAllActive() {
+    if (saveLockRef.current) return;
     const ids = members.filter((m) => m.memberStatus === "active").map((m) => m.id);
     setPresentIds(new Set(ids));
   }
 
   function clearAll() {
+    if (saveLockRef.current) return;
     setPresentIds(new Set());
     setInvitees([]);
   }
 
   function addInvitee() {
+    if (saveLockRef.current) return;
     setInvitees((rows) => [...rows, { id: newInviteeId(), name: "", phone: "" }]);
   }
 
   function removeInvitee(id: string) {
+    if (saveLockRef.current) return;
     setInvitees((rows) => rows.filter((r) => r.id !== id));
   }
 
   function patchInvitee(id: string, patch: Partial<Pick<InviteeDraft, "name" | "phone">>) {
+    if (saveLockRef.current) return;
     setInvitees((rows) => rows.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   }
 
@@ -222,19 +220,32 @@ export function RecordAttendanceView({ homeHref, cellSlug, members }: RecordAtte
   const clearAllRef = useNativeTapButton<HTMLButtonElement>(clearAll);
   const addInviteeRef = useNativeTapButton<HTMLButtonElement>(addInvitee);
 
-  function handleSaveAttendance() {
-    const parts: string[] = [];
-    parts.push(`${presentCount} member${presentCount === 1 ? "" : "s"} present`);
-    if (inviteeCount > 0) {
-      parts.push(`${inviteeCount} invitee${inviteeCount === 1 ? "" : "s"}`);
+  const handleSaveAttendance = useCallback(async () => {
+    if (saveLockRef.current) return;
+    saveLockRef.current = true;
+    setSavingAttendance(true);
+
+    const inviteePayload = invitees.map((r) => ({
+      name: r.name,
+      phone: r.phone,
+    }));
+
+    const result = await saveAttendanceAction(
+      cellSlug,
+      meetingDate,
+      Array.from(presentIds),
+      inviteePayload,
+    );
+
+    if (!result.ok) {
+      saveLockRef.current = false;
+      setSavingAttendance(false);
+      window.alert(result.error);
+      return;
     }
-    appendCellActivity(cellSlug, {
-      icon: "attendance",
-      title: `Attendance · ${formatMeetingLabel(meetingDate)}`,
-      subtext: parts.join(" · "),
-    });
+
     router.push(homeHref);
-  }
+  }, [cellSlug, homeHref, invitees, meetingDate, presentIds, router]);
 
   const saveRef = useNativeTapButton<HTMLButtonElement>(handleSaveAttendance);
 
@@ -244,7 +255,7 @@ export function RecordAttendanceView({ homeHref, cellSlug, members }: RecordAtte
         <div className="mx-auto flex w-full max-w-3xl items-start gap-3">
           <Link
             href={homeHref}
-            className="mt-0.5 inline-flex h-10 w-10 shrink-0 touch-manipulation items-center justify-center rounded-full text-white/90 transition hover:bg-white/10"
+            className={`mt-0.5 inline-flex h-10 w-10 shrink-0 touch-manipulation items-center justify-center rounded-full text-white/90 transition hover:bg-white/10 ${savingAttendance ? "pointer-events-none opacity-50" : ""}`}
             aria-label="Back"
           >
             <IconChevronLeft className="h-6 w-6" />
@@ -267,8 +278,9 @@ export function RecordAttendanceView({ homeHref, cellSlug, members }: RecordAtte
               id="meeting-date"
               type="date"
               value={meetingDate}
+              disabled={savingAttendance}
               onChange={(e) => setMeetingDate(e.target.value)}
-              className="w-full min-h-12 rounded-lg border border-neutral-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-neutral-400 focus:ring-1 focus:ring-neutral-900/10"
+              className="w-full min-h-12 rounded-lg border border-neutral-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-neutral-400 focus:ring-1 focus:ring-neutral-900/10 disabled:opacity-60"
             />
           </div>
         </div>
@@ -298,9 +310,10 @@ export function RecordAttendanceView({ homeHref, cellSlug, members }: RecordAtte
               inputMode="search"
               enterKeyHint="search"
               value={search}
+              disabled={savingAttendance}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search members…"
-              className="w-full min-h-12 rounded-lg border border-neutral-200 bg-white py-2.5 pl-10 pr-3 text-sm outline-none transition placeholder:text-neutral-400 focus:border-neutral-400 focus:ring-1 focus:ring-neutral-900/10"
+              className="w-full min-h-12 rounded-lg border border-neutral-200 bg-white py-2.5 pl-10 pr-3 text-sm outline-none transition placeholder:text-neutral-400 focus:border-neutral-400 focus:ring-1 focus:ring-neutral-900/10 disabled:opacity-60"
               autoComplete="off"
             />
           </label>
@@ -310,7 +323,8 @@ export function RecordAttendanceView({ homeHref, cellSlug, members }: RecordAtte
           <button
             ref={selectAllRef}
             type="button"
-            className="min-h-12 w-full touch-manipulation rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm font-semibold text-emerald-900 transition hover:bg-emerald-100/80 active:bg-emerald-200/80 sm:flex-1"
+            disabled={savingAttendance}
+            className="min-h-12 w-full touch-manipulation rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm font-semibold text-emerald-900 transition hover:bg-emerald-100/80 active:bg-emerald-200/80 disabled:pointer-events-none disabled:opacity-50 sm:flex-1"
           >
             <span className="inline-flex items-center justify-center gap-2">
               <IconUserCheck className="h-4 w-4 shrink-0" aria-hidden />
@@ -320,7 +334,8 @@ export function RecordAttendanceView({ homeHref, cellSlug, members }: RecordAtte
           <button
             ref={clearAllRef}
             type="button"
-            className="min-h-12 w-full touch-manipulation rounded-lg border border-neutral-200 bg-white px-4 py-3 text-center text-sm font-semibold text-neutral-800 transition hover:bg-neutral-50 active:bg-neutral-100 sm:w-auto sm:shrink-0 sm:px-5"
+            disabled={savingAttendance}
+            className="min-h-12 w-full touch-manipulation rounded-lg border border-neutral-200 bg-white px-4 py-3 text-center text-sm font-semibold text-neutral-800 transition hover:bg-neutral-50 active:bg-neutral-100 disabled:pointer-events-none disabled:opacity-50 sm:w-auto sm:shrink-0 sm:px-5"
           >
             Clear All
           </button>
@@ -343,8 +358,9 @@ export function RecordAttendanceView({ homeHref, cellSlug, members }: RecordAtte
                     <input
                       type="checkbox"
                       checked={checked}
+                      disabled={savingAttendance}
                       onChange={() => toggleMember(m.id)}
-                      className="h-5 w-5 shrink-0 rounded border-neutral-300 text-black focus:ring-neutral-900"
+                      className="h-5 w-5 shrink-0 rounded border-neutral-300 text-black focus:ring-neutral-900 disabled:opacity-50"
                     />
                     <span
                       className={`h-2.5 w-2.5 shrink-0 rounded-full ${rosterDotClass(m.memberStatus)}`}
@@ -373,7 +389,8 @@ export function RecordAttendanceView({ homeHref, cellSlug, members }: RecordAtte
             <button
               ref={addInviteeRef}
               type="button"
-              className="min-h-12 w-full touch-manipulation rounded-lg border border-sky-200 bg-sky-50 px-3 py-3 text-center text-sm font-semibold text-sky-800 transition hover:bg-sky-100/80 active:bg-sky-200/80 sm:w-auto sm:self-start"
+              disabled={savingAttendance}
+              className="min-h-12 w-full touch-manipulation rounded-lg border border-sky-200 bg-sky-50 px-3 py-3 text-center text-sm font-semibold text-sky-800 transition hover:bg-sky-100/80 active:bg-sky-200/80 disabled:pointer-events-none disabled:opacity-50 sm:w-auto sm:self-start"
             >
               + Add Invitee
             </button>
@@ -402,16 +419,17 @@ export function RecordAttendanceView({ homeHref, cellSlug, members }: RecordAtte
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-2 sm:flex-row sm:gap-3">
           <Link
             href={homeHref}
-            className="block min-h-12 w-full touch-manipulation rounded-lg border border-neutral-300 bg-white py-3 text-center text-sm font-semibold text-neutral-900 no-underline transition hover:bg-neutral-50 active:bg-neutral-100 sm:flex-1"
+            className={`block min-h-12 w-full touch-manipulation rounded-lg border border-neutral-300 bg-white py-3 text-center text-sm font-semibold text-neutral-900 no-underline transition hover:bg-neutral-50 active:bg-neutral-100 sm:flex-1 ${savingAttendance ? "pointer-events-none opacity-50" : ""}`}
           >
             Cancel
           </Link>
           <button
             ref={saveRef}
             type="button"
-            className="block min-h-12 w-full touch-manipulation rounded-lg bg-[#0B0E14] py-3 text-center text-sm font-bold text-white transition hover:bg-[#141922] active:bg-[#141922] sm:flex-1"
+            disabled={savingAttendance}
+            className="block min-h-12 w-full touch-manipulation rounded-lg bg-[#0B0E14] py-3 text-center text-sm font-bold text-white transition hover:bg-[#141922] active:bg-[#141922] disabled:pointer-events-none disabled:opacity-60 sm:flex-1"
           >
-            Save Attendance
+            {savingAttendance ? "Saving…" : "Save Attendance"}
           </button>
         </div>
       </footer>

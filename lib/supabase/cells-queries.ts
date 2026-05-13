@@ -1,7 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CellGroupRow } from "@/lib/admin-cells-store";
-import { listMembers } from "@/lib/members-store";
 import type { CellStats } from "@/components/cell-dashboard/types";
+import { fetchMemberRollupMap, fetchRecentActivitiesForCell } from "@/lib/supabase/members-queries";
+import type { ActivityListItem } from "@/components/cell-dashboard/types";
 
 export type CellDbRow = {
   slug: string;
@@ -23,19 +24,8 @@ function formatUpdatedLabel(iso: string): string {
   }
 }
 
-function tallyMembersForSlug(slug: string) {
-  let total = 0;
-  let active = 0;
-  let inactive = 0;
-  let dormant = 0;
-  for (const m of listMembers()) {
-    if (m.cellId !== slug) continue;
-    total += 1;
-    if (m.memberStatus === "active") active += 1;
-    else if (m.memberStatus === "inactive") inactive += 1;
-    else dormant += 1;
-  }
-  return { total, active, inactive, dormant };
+function emptyStats(): CellStats {
+  return { totalMembers: 0, active: 0, inactive: 0, dormant: 0 };
 }
 
 function meetingSchedule(row: Pick<CellDbRow, "meeting_day" | "meeting_time">): string {
@@ -44,8 +34,11 @@ function meetingSchedule(row: Pick<CellDbRow, "meeting_day" | "meeting_time">): 
   return `${day} at ${time}`;
 }
 
-export function cellRowToGroupRow(cell: CellDbRow, leaderDisplayName: string): CellGroupRow {
-  const t = tallyMembersForSlug(cell.slug);
+export function cellRowToGroupRow(
+  cell: CellDbRow,
+  leaderDisplayName: string,
+  memberStats: CellStats,
+): CellGroupRow {
   return {
     id: cell.slug,
     name: cell.name,
@@ -54,10 +47,10 @@ export function cellRowToGroupRow(cell: CellDbRow, leaderDisplayName: string): C
     leaderPhone: "—",
     meetingSchedule: meetingSchedule(cell),
     meetingLocation: cell.meeting_location?.trim() ?? "",
-    total: t.total,
-    active: t.active,
-    inactive: t.inactive,
-    dormant: t.dormant,
+    total: memberStats.totalMembers,
+    active: memberStats.active,
+    inactive: memberStats.inactive,
+    dormant: memberStats.dormant,
     updatedLabel: formatUpdatedLabel(cell.updated_at),
   };
 }
@@ -84,6 +77,8 @@ export async function fetchAllCellGroupRows(supabase: SupabaseClient): Promise<C
 
   if (error || !cells?.length) return [];
 
+  const rollup = await fetchMemberRollupMap(supabase);
+
   const ids = [...new Set(cells.map((c) => c.leader_user_id as string))];
   const { data: profiles } = await supabase.from("profiles").select("id, full_name").in("id", ids);
 
@@ -93,7 +88,7 @@ export async function fetchAllCellGroupRows(supabase: SupabaseClient): Promise<C
   }
 
   return (cells as CellDbRow[]).map((c) =>
-    cellRowToGroupRow(c, leaderName.get(c.leader_user_id) ?? ""),
+    cellRowToGroupRow(c, leaderName.get(c.leader_user_id) ?? "", rollup.get(c.slug) ?? emptyStats()),
   );
 }
 
@@ -103,12 +98,13 @@ export async function fetchCellGroupRowBySlug(
 ): Promise<CellGroupRow | null> {
   const row = await fetchCellDbRow(supabase, slug);
   if (!row) return null;
+  const rollup = await fetchMemberRollupMap(supabase);
   const { data: prof } = await supabase
     .from("profiles")
     .select("full_name")
     .eq("id", row.leader_user_id)
     .maybeSingle();
-  return cellRowToGroupRow(row, String(prof?.full_name ?? ""));
+  return cellRowToGroupRow(row, String(prof?.full_name ?? ""), rollup.get(slug) ?? emptyStats());
 }
 
 export type ResolvedCellLeaderDashboard = {
@@ -117,6 +113,7 @@ export type ResolvedCellLeaderDashboard = {
   leaderName: string;
   lastUpdatedLabel: string;
   stats: CellStats;
+  activities: ActivityListItem[];
 };
 
 export async function loadCellLeaderDashboard(
@@ -133,7 +130,9 @@ export async function loadCellLeaderDashboard(
     .maybeSingle();
 
   const leaderName = String(prof?.full_name ?? "").trim() || "Cell leader";
-  const t = tallyMembersForSlug(cellSlug);
+  const rollup = await fetchMemberRollupMap(supabase);
+  const t = rollup.get(cellSlug) ?? emptyStats();
+  const activities = await fetchRecentActivitiesForCell(supabase, cellSlug);
 
   return {
     cellSlug: cell.slug,
@@ -141,10 +140,11 @@ export async function loadCellLeaderDashboard(
     leaderName,
     lastUpdatedLabel: formatUpdatedLabel(cell.updated_at),
     stats: {
-      totalMembers: t.total,
+      totalMembers: t.totalMembers,
       active: t.active,
       inactive: t.inactive,
       dormant: t.dormant,
     },
+    activities,
   };
 }

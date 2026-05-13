@@ -9,6 +9,7 @@ import {
   IconGraduationCap,
   IconMail,
   IconMapPin,
+  IconPhone,
   IconUser,
 } from "./icons";
 import type { MemberFormValues } from "./member-form-values";
@@ -97,6 +98,22 @@ export function MemberFormFields({
                 placeholder="email@example.com"
                 value={values.email}
                 onChange={(e) => onChange({ email: e.target.value })}
+                className="min-w-0 flex-1 border-0 bg-transparent px-3 py-2.5 text-sm outline-none placeholder:text-neutral-400"
+              />
+            </InputShell>
+          </div>
+          <div>
+            <FieldLabel>Phone number</FieldLabel>
+            <InputShell>
+              <span className="flex items-center border-r border-neutral-100 px-3 text-neutral-400">
+                <IconPhone className="h-4 w-4" />
+              </span>
+              <input
+                type="tel"
+                autoComplete="tel"
+                placeholder="e.g. +1 234 567 8900"
+                value={values.phone}
+                onChange={(e) => onChange({ phone: e.target.value })}
                 className="min-w-0 flex-1 border-0 bg-transparent px-3 py-2.5 text-sm outline-none placeholder:text-neutral-400"
               />
             </InputShell>

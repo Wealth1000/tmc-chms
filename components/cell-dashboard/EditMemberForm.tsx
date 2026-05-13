@@ -2,24 +2,19 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
+import { updateMemberAction } from "@/app/members/actions";
 import { HelpFab } from "./HelpFab";
 import { IconChevronLeft } from "./icons";
 import { MemberFormFields } from "./MemberFormFields";
-import {
-  formValuesToMemberPatch,
-  memberRecordToFormValues,
-  type MemberFormValues,
-} from "./member-form-values";
+import { memberRecordToFormValues, type MemberFormValues } from "./member-form-values";
 import type { MemberRecord } from "@/lib/members-store";
-import { updateMember } from "@/lib/members-store";
 
 export type EditMemberFormProps = {
   member: MemberRecord;
   /** Defaults to `/cell-members` */
   listHref?: string;
   onCancel?: () => void;
-  /** TODO: run after Supabase update succeeds */
   onSave?: () => void;
   onHelp?: () => void;
 };
@@ -32,16 +27,43 @@ export function EditMemberForm({
   onHelp,
 }: EditMemberFormProps) {
   const router = useRouter();
+  const saveLockRef = useRef(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const [values, setValues] = useState<MemberFormValues>(() =>
     memberRecordToFormValues(member),
   );
 
   const patch = useCallback((p: Partial<MemberFormValues>) => {
     setValues((v) => ({ ...v, ...p }));
+    setFormError(null);
   }, []);
 
-  const handleSave = () => {
-    updateMember(member.id, formValuesToMemberPatch(values));
+  const handleSave = async () => {
+    if (saveLockRef.current) return;
+    saveLockRef.current = true;
+    setSubmitting(true);
+    setFormError(null);
+
+    const result = await updateMemberAction(member.id, {
+      fullName: values.fullName.trim(),
+      email: values.email.trim(),
+      phone: values.phone.trim(),
+      dateOfBirth: values.dateOfBirth.trim(),
+      area: values.area.trim(),
+      isStudent: values.isStudent,
+      occupation: values.occupation.trim(),
+      foundationStatus: values.foundationStatus,
+      memberStatus: values.memberStatus,
+    });
+
+    if (!result.ok) {
+      saveLockRef.current = false;
+      setSubmitting(false);
+      setFormError(result.error);
+      return;
+    }
+
     onSave?.();
     router.push(listHref);
     router.refresh();
@@ -55,7 +77,7 @@ export function EditMemberForm({
         <div className="flex w-full max-w-full items-start gap-3">
           <Link
             href={listHref}
-            className="mt-0.5 flex h-10 w-10 shrink-0 touch-manipulation items-center justify-center rounded-full text-white/90 transition hover:bg-white/10"
+            className={`mt-0.5 flex h-10 w-10 shrink-0 touch-manipulation items-center justify-center rounded-full text-white/90 transition hover:bg-white/10 ${submitting ? "pointer-events-none opacity-50" : ""}`}
             aria-label="Back to members"
           >
             <IconChevronLeft className="h-6 w-6" />
@@ -68,11 +90,18 @@ export function EditMemberForm({
       </header>
 
       <main className="min-h-0 flex-1 overflow-y-auto overscroll-none bg-white px-4 lg:px-8">
-        <MemberFormFields
-          formInstanceId={`edit-${member.id}`}
-          values={values}
-          onChange={patch}
-        />
+        {formError ? (
+          <p className="mb-4 mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900 lg:mt-6">
+            {formError}
+          </p>
+        ) : null}
+        <fieldset disabled={submitting} className="min-w-0 border-0 p-0">
+          <MemberFormFields
+            formInstanceId={`edit-${member.id}`}
+            values={values}
+            onChange={patch}
+          />
+        </fieldset>
       </main>
 
       <footer className="shrink-0 border-t border-neutral-200 bg-white px-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] pt-4 lg:px-8">
@@ -80,16 +109,17 @@ export function EditMemberForm({
           <Link
             href={listHref}
             onClick={() => onCancel?.()}
-            className="flex h-12 min-h-12 flex-1 touch-manipulation items-center justify-center rounded-lg border border-neutral-300 bg-white text-sm font-semibold text-neutral-900 transition hover:bg-neutral-50"
+            className={`flex h-12 min-h-12 flex-1 touch-manipulation items-center justify-center rounded-lg border border-neutral-300 bg-white text-sm font-semibold text-neutral-900 transition hover:bg-neutral-50 ${submitting ? "pointer-events-none opacity-50" : ""}`}
           >
             Cancel
           </Link>
           <button
             type="button"
-            className="flex h-12 min-h-12 flex-1 touch-manipulation items-center justify-center rounded-lg bg-[#0B0E14] text-sm font-bold text-white transition hover:bg-[#141922]"
-            onClick={handleSave}
+            disabled={submitting}
+            className="flex h-12 min-h-12 flex-1 touch-manipulation items-center justify-center rounded-lg bg-[#0B0E14] text-sm font-bold text-white transition hover:bg-[#141922] disabled:pointer-events-none disabled:opacity-60"
+            onClick={() => void handleSave()}
           >
-            Save changes
+            {submitting ? "Saving…" : "Save changes"}
           </button>
         </div>
       </footer>

@@ -12,6 +12,7 @@ import {
   IconChevronRight,
   IconFilter,
   IconMail,
+  IconPhone,
   IconSearch,
 } from "./icons";
 import {
@@ -20,7 +21,6 @@ import {
   cellMembersHref,
 } from "@/lib/cell-leader-links";
 import {
-  listMembers,
   parseMemberListFilter,
   type MemberListFilter,
   type MemberRecord,
@@ -73,15 +73,16 @@ function filterHref(id: MemberListFilter, cellSlug: string) {
 
 export type CellMembersViewProps = {
   cellSlug: string;
+  members: MemberRecord[];
 };
 
-export function CellMembersView({ cellSlug }: CellMembersViewProps) {
+export function CellMembersView({ cellSlug, members }: CellMembersViewProps) {
   const searchParams = useSearchParams();
   const filter: MemberListFilter = parseMemberListFilter(searchParams.get("filter"));
   const [search, setSearch] = useState("");
 
   const filtered = useMemo(() => {
-    let list = listMembers().filter((m) => m.cellId === cellSlug);
+    let list = members.filter((m) => m.cellId === cellSlug);
     if (filter !== "all") {
       list = list.filter((m) => m.memberStatus === filter);
     }
@@ -91,11 +92,12 @@ export function CellMembersView({ cellSlug }: CellMembersViewProps) {
         (m) =>
           m.fullName.toLowerCase().includes(q) ||
           m.email.toLowerCase().includes(q) ||
+          m.phone.toLowerCase().includes(q) ||
           m.occupation.toLowerCase().includes(q),
       );
     }
     return [...list].sort((a, b) => a.fullName.localeCompare(b.fullName));
-  }, [filter, search, cellSlug]);
+  }, [filter, search, cellSlug, members]);
 
   return (
     <div className="flex h-full min-h-0 w-full max-w-full flex-col overflow-hidden overscroll-none bg-[#0B0E14]">
@@ -187,6 +189,12 @@ export function CellMembersView({ cellSlug }: CellMembersViewProps) {
                       <IconMail className="h-3.5 w-3.5 shrink-0" />
                       <span className="truncate">{m.email}</span>
                     </p>
+                    {m.phone.trim() ? (
+                      <p className="mt-1 flex items-center gap-2 text-xs text-neutral-500">
+                        <IconPhone className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">{m.phone}</span>
+                      </p>
+                    ) : null}
                     <p className="mt-1 flex items-center gap-2 text-xs text-neutral-500">
                       {m.occupation.startsWith("Student") ? (
                         <IconBriefcase className="h-3.5 w-3.5 shrink-0" />

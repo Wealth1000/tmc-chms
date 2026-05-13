@@ -2,8 +2,6 @@
  * Admin cell directory types and aggregates. Cell rows are loaded from Supabase in route handlers.
  */
 
-import { listMembers } from "@/lib/members-store";
-
 export type CellGroupRow = {
   id: string;
   name: string;
@@ -30,31 +28,6 @@ export type AdminActivityItem = {
   timeLabel: string;
 };
 
-/** Whole-roster counts from the member store (same sums as `/admin/members`). */
-export function aggregateMemberRosterStats(cellRows: CellGroupRow[]) {
-  const members = listMembers();
-  let active = 0;
-  let inactive = 0;
-  let dormant = 0;
-  for (const m of members) {
-    if (m.memberStatus === "active") active += 1;
-    else if (m.memberStatus === "inactive") inactive += 1;
-    else dormant += 1;
-  }
-  return {
-    totalCells: cellRows.length,
-    totalMembers: members.length,
-    active,
-    inactive,
-    dormant,
-  };
-}
-
-/** Placeholder until attendance and reports are persisted. */
-export function buildAdminActivityFeed(_rows: CellGroupRow[]): AdminActivityItem[] {
-  return [];
-}
-
 export function aggregateAdminStats(rows: CellGroupRow[]) {
   const totalCells = rows.length;
   let totalMembers = 0;
@@ -68,4 +41,14 @@ export function aggregateAdminStats(rows: CellGroupRow[]) {
     dormant += r.dormant;
   }
   return { totalCells, totalMembers, active, inactive, dormant };
+}
+
+/** Whole-roster counts from per-cell aggregates (same sums as `/admin/members`). */
+export function aggregateMemberRosterStats(cellRows: CellGroupRow[]) {
+  return aggregateAdminStats(cellRows);
+}
+
+/** Placeholder until attendance and reports are persisted. */
+export function buildAdminActivityFeed(_rows: CellGroupRow[]): AdminActivityItem[] {
+  return [];
 }
