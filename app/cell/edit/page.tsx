@@ -1,0 +1,44 @@
+import { redirect } from "next/navigation";
+import { EditCellInfoForm } from "@/components/cell-dashboard/EditCellInfoForm";
+import { cellDashboardHref } from "@/lib/cell-leader-links";
+import { cellDbRowToEditableInfo } from "@/lib/cell-leader-editable-mapper";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { fetchCellDbRow } from "@/lib/supabase/cells-queries";
+import { firstSearchParam } from "@/lib/dev-login";
+
+type PageProps = {
+  searchParams: Promise<{ cell?: string | string[] }>;
+};
+
+export default async function CellEditInfoPage({ searchParams }: PageProps) {
+  const sp = await searchParams;
+  const cell = firstSearchParam(sp.cell);
+  if (!cell) {
+    redirect("/");
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const row = await fetchCellDbRow(supabase, cell);
+  if (!row) {
+    redirect("/");
+  }
+
+  const { data: prof } = await supabase
+    .from("profiles")
+    .select("full_name")
+    .eq("id", row.leader_user_id)
+    .maybeSingle();
+
+  const initial = cellDbRowToEditableInfo(row, String(prof?.full_name ?? ""));
+
+  return (
+    <div className="flex h-full min-h-0 w-full max-w-full flex-1 flex-col overflow-hidden">
+      <EditCellInfoForm
+        key={cell}
+        cellId={cell}
+        initial={initial}
+        homeHref={cellDashboardHref(cell)}
+      />
+    </div>
+  );
+}
