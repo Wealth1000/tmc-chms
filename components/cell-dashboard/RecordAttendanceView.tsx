@@ -12,7 +12,8 @@ import {
   IconUserPlus,
   IconUsers,
 } from "./icons";
-import type { MemberRosterStatus } from "@/lib/members-store";
+import { useLeaderCellData } from "@/components/offline/leader-cell-data-provider";
+import { isCellLeaderRosterEntry, type MemberRosterStatus } from "@/lib/members-store";
 import { saveAttendanceAction } from "@/app/members/actions";
 
 export type AttendanceMemberRow = {
@@ -149,11 +150,19 @@ function InviteeRow({ row, onRemove, onPatch }: InviteeRowProps) {
 
 type RecordAttendanceViewProps = {
   homeHref: string;
-  cellSlug: string;
-  members: AttendanceMemberRow[];
 };
 
-export function RecordAttendanceView({ homeHref, cellSlug, members }: RecordAttendanceViewProps) {
+export function RecordAttendanceView({ homeHref }: RecordAttendanceViewProps) {
+  const { cellSlug, members: roster } = useLeaderCellData();
+  const members = useMemo((): AttendanceMemberRow[] => {
+    return roster
+      .filter((m) => !isCellLeaderRosterEntry(m))
+      .map((m) => ({
+        id: m.id,
+        fullName: m.fullName,
+        memberStatus: m.memberStatus,
+      }));
+  }, [roster]);
   const router = useRouter();
   const saveLockRef = useRef(false);
   const [savingAttendance, setSavingAttendance] = useState(false);

@@ -14,6 +14,8 @@ export type CellStats = {
   dormant: number;
 };
 
+import type { RoleSwitchMenuProps } from "@/lib/auth/role-switch-menu";
+
 export type CellLeaderDashboardProps = {
   cellName: string;
   leaderName: string;
@@ -23,6 +25,8 @@ export type CellLeaderDashboardProps = {
   activities: ActivityListItem[];
   /** Dev: `?cell=` slug so member flows stay scoped to the signed-in cell */
   cellSlug: string;
+  /** Dual admin+leader workspace switch (profile menu). */
+  roleSwitch?: RoleSwitchMenuProps | null;
   /** Wire these up to navigation, mutations, modals, etc. */
   onOpenProfile?: () => void;
   /** Prefer over `onAddMember` — uses `<Link>` so navigation works reliably on mobile */

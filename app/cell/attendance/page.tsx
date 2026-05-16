@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
+import { LeaderCellPageShell } from "@/components/cell-dashboard/LeaderCellPageShell";
 import { RecordAttendanceView } from "@/components/cell-dashboard/RecordAttendanceView";
 import { cellDashboardHref } from "@/lib/cell-leader-links";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { fetchCellDbRow } from "@/lib/supabase/cells-queries";
-import { fetchMembersForCell } from "@/lib/supabase/members-queries";
+import { fetchCellRosterWithLeader } from "@/lib/supabase/cell-roster-queries";
 import { firstSearchParam } from "@/lib/dev-login";
 
 type PageProps = {
@@ -23,20 +24,13 @@ export default async function CellAttendancePage({ searchParams }: PageProps) {
     redirect("/");
   }
 
-  const members = await fetchMembersForCell(supabase, row.slug);
+  const members = await fetchCellRosterWithLeader(supabase, row.slug);
 
   return (
     <div className="flex h-full min-h-0 w-full max-w-full flex-1 flex-col overflow-hidden">
-      <RecordAttendanceView
-        key={row.slug}
-        cellSlug={row.slug}
-        homeHref={cellDashboardHref(row.slug)}
-        members={members.map((m) => ({
-          id: m.id,
-          fullName: m.fullName,
-          memberStatus: m.memberStatus,
-        }))}
-      />
+      <LeaderCellPageShell cellSlug={row.slug} server={{ members }}>
+        <RecordAttendanceView key={row.slug} homeHref={cellDashboardHref(row.slug)} />
+      </LeaderCellPageShell>
     </div>
   );
 }

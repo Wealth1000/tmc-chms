@@ -1,13 +1,19 @@
 import Dexie, { type Table } from "dexie";
+import type { CellLeaderSnapshot } from "@/lib/offline/cell-snapshot-types";
 import type { SyncQueueOp, SyncQueueRecord } from "@/lib/offline/sync-types";
 
 class TmcOfflineDexie extends Dexie {
   syncQueue!: Table<SyncQueueRecord, string>;
+  cellSnapshots!: Table<CellLeaderSnapshot, string>;
 
   constructor() {
     super("tmc-chms-offline");
     this.version(1).stores({
       syncQueue: "id, createdAt, op",
+    });
+    this.version(2).stores({
+      syncQueue: "id, createdAt, op",
+      cellSnapshots: "cellSlug, fetchedAt",
     });
   }
 }

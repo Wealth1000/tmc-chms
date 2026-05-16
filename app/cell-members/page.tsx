@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { CellMembersView } from "@/components/cell-dashboard/CellMembersView";
+import { LeaderCellPageShell } from "@/components/cell-dashboard/LeaderCellPageShell";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { fetchCellDbRow } from "@/lib/supabase/cells-queries";
 import { fetchCellRosterWithLeader } from "@/lib/supabase/cell-roster-queries";
@@ -36,9 +37,11 @@ export default async function CellMembersPage({ searchParams }: PageProps) {
 
   return (
     <div className="flex h-full min-h-0 w-full max-w-full flex-1 flex-col overflow-hidden overscroll-none">
-      <Suspense fallback={<CellMembersFallback />}>
-        <CellMembersView cellSlug={cell} members={members} />
-      </Suspense>
+      <LeaderCellPageShell cellSlug={cell} server={{ members }}>
+        <Suspense fallback={<CellMembersFallback />}>
+          <CellMembersView />
+        </Suspense>
+      </LeaderCellPageShell>
     </div>
   );
 }

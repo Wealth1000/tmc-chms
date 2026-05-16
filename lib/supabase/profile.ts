@@ -2,12 +2,22 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type AppProfile = {
   role: "admin" | "leader";
+  is_admin: boolean;
   cell_slug: string | null;
 };
 
-/** Leaders need a non-empty `profiles.cell_slug` for `?cell=` routes (no silent demo default). */
+export function profileHasAdminAccess(profile: AppProfile | null): boolean {
+  if (!profile) return false;
+  return profile.role === "admin" || profile.is_admin;
+}
+
+export function profileHasLeaderAccess(profile: AppProfile | null): boolean {
+  return Boolean(effectiveLeaderCellSlug(profile));
+}
+
+/** Cell slug for leader routes (`?cell=`). Any profile with a cell assignment may use leader UI. */
 export function effectiveLeaderCellSlug(profile: AppProfile | null): string | null {
-  if (!profile || profile.role !== "leader") return null;
+  if (!profile) return null;
   const s = profile.cell_slug?.trim();
   return s ? s : null;
 }
@@ -24,7 +34,7 @@ export async function fetchAppProfileOrFail(
 ): Promise<{ ok: true; profile: AppProfile } | { ok: false; failure: ProfileFetchFailure }> {
   const { data, error } = await supabase
     .from("profiles")
-    .select("role, cell_slug")
+    .select("role, is_admin, cell_slug")
     .eq("id", userId)
     .maybeSingle();
 
@@ -42,6 +52,7 @@ export async function fetchAppProfileOrFail(
     ok: true,
     profile: {
       role: role as AppProfile["role"],
+      is_admin: Boolean(data.is_admin),
       cell_slug: typeof data.cell_slug === "string" ? data.cell_slug : null,
     },
   };

@@ -5,6 +5,7 @@ import type { ActivityIcon, CellLeaderDashboardProps } from "./types";
 import { HelpFab } from "./HelpFab";
 import { cellMembersHref } from "@/lib/cell-leader-links";
 import { HeaderProfileMenu } from "./HeaderProfileMenu";
+import type { RoleSwitchMenuProps } from "@/lib/auth/role-switch-menu";
 import {
   IconClipboard,
   IconFileText,
@@ -40,6 +41,7 @@ export function CellLeaderDashboard({
   lastUpdatedLabel,
   activities,
   cellSlug,
+  roleSwitch,
   onOpenProfile,
   addMemberHref,
   updateCellInfoHref,
@@ -62,7 +64,7 @@ export function CellLeaderDashboard({
           </h1>
           <p className="mt-1 text-sm text-white/55">Led by {leaderName}</p>
         </div>
-        <HeaderProfileMenu onProfile={onOpenProfile} />
+        <HeaderProfileMenu onProfile={onOpenProfile} roleSwitch={roleSwitch} />
       </header>
 
       <div className="relative z-0 flex min-h-0 flex-1 flex-col overflow-hidden bg-white">

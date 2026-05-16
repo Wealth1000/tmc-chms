@@ -2,7 +2,11 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchMemberById } from "@/lib/supabase/members-queries";
-import { effectiveLeaderCellSlug, fetchAppProfile } from "@/lib/supabase/profile";
+import {
+  effectiveLeaderCellSlug,
+  fetchAppProfile,
+  profileHasAdminAccess,
+} from "@/lib/supabase/profile";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { revalidateCellSlugPaths } from "@/lib/revalidate-cell-paths";
 
@@ -31,7 +35,7 @@ async function assertCanManageCell(
     return { ok: false, error: "You are not signed in." };
   }
   const profile = await fetchAppProfile(supabase, user.id);
-  if (profile?.role === "admin") {
+  if (profileHasAdminAccess(profile)) {
     return { ok: true };
   }
   const slug = effectiveLeaderCellSlug(profile);

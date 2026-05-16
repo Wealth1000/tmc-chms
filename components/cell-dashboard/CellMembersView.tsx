@@ -20,6 +20,7 @@ import {
   cellMemberEditHref,
   cellMembersHref,
 } from "@/lib/cell-leader-links";
+import { useLeaderCellData } from "@/components/offline/leader-cell-data-provider";
 import {
   parseMemberListFilter,
   isCellLeaderRosterEntry,
@@ -76,12 +77,8 @@ function filterHref(id: MemberListFilter, cellSlug: string) {
   return cellMembersHref(cellSlug, id);
 }
 
-export type CellMembersViewProps = {
-  cellSlug: string;
-  members: MemberRecord[];
-};
-
-export function CellMembersView({ cellSlug, members }: CellMembersViewProps) {
+export function CellMembersView() {
+  const { cellSlug, members } = useLeaderCellData();
   const searchParams = useSearchParams();
   const filter: MemberListFilter = parseMemberListFilter(searchParams.get("filter"));
   const [search, setSearch] = useState("");

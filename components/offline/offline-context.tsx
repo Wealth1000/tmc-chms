@@ -69,6 +69,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       }
       await refreshPendingCount();
       if (didSync) {
+        window.dispatchEvent(new Event("tmc-cell-snapshot-refresh"));
         router.refresh();
       }
     } finally {

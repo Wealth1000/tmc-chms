@@ -6,28 +6,25 @@ import {
   cellEditInfoHref,
   cellReportsHref,
 } from "@/lib/cell-leader-links";
+import { useLeaderCellData } from "@/components/offline/leader-cell-data-provider";
+import type { RoleSwitchMenuProps } from "@/lib/auth/role-switch-menu";
 import { CellLeaderDashboard } from "./CellLeaderDashboard";
-import type { ActivityListItem, CellStats } from "./types";
 
-type DashboardPageClientProps = {
-  cellSlug: string;
-  cellName: string;
-  leaderName: string;
-  stats: CellStats;
-  lastUpdatedLabel: string;
-  activities: ActivityListItem[];
-};
+export function DashboardPageClient({ roleSwitch }: { roleSwitch?: RoleSwitchMenuProps | null }) {
+  const { cellSlug, dashboard } = useLeaderCellData();
+  if (!dashboard) {
+    return (
+      <div className="flex flex-1 items-center justify-center bg-[#0B0E14] p-6 text-center text-sm text-white/70">
+        <p>No cell data on this device yet. Open this screen once while online to save it for offline use.</p>
+      </div>
+    );
+  }
 
-export function DashboardPageClient({
-  cellSlug,
-  cellName,
-  leaderName,
-  stats,
-  lastUpdatedLabel,
-  activities,
-}: DashboardPageClientProps) {
+  const { cellName, leaderName, stats, lastUpdatedLabel, activities } = dashboard;
+
   return (
     <CellLeaderDashboard
+      roleSwitch={roleSwitch}
       cellSlug={cellSlug}
       cellName={cellName}
       leaderName={leaderName}

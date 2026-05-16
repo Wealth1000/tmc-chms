@@ -1,10 +1,17 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { ACTIVE_ROLE_COOKIE, postLoginPath, resolveActiveRole } from "@/lib/auth/active-role";
 import { readSupabaseServerOrEdgeEnv } from "@/lib/supabase/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ensureLeaderCellForCurrentUser } from "@/lib/supabase/ensure-leader-cell";
-import { effectiveLeaderCellSlug, fetchAppProfileOrFail } from "@/lib/supabase/profile";
+import {
+  effectiveLeaderCellSlug,
+  fetchAppProfileOrFail,
+  profileHasAdminAccess,
+  profileHasLeaderAccess,
+} from "@/lib/supabase/profile";
 
 export async function login(_prev: string | null, formData: FormData): Promise<string | null> {
   if (!readSupabaseServerOrEdgeEnv()) {
@@ -49,7 +56,7 @@ export async function login(_prev: string | null, formData: FormData): Promise<s
   if (!profileResult.ok) {
     const f = profileResult.failure;
     if (f.kind === "invalid_role") {
-      return `Your profile row exists, but role must be exactly "admin" or "leader" (got "${f.role || "empty"}"). Update public.profiles.role for user id ${user.id}.`;
+      return `Your profile row exists, but role must be "admin" or "leader" (got "${f.role || "empty"}"). Update public.profiles for user id ${user.id}. Dual admin+leader: role "leader", is_admin true, and cell_slug set (migration 0010).`;
     }
     if (f.kind === "query_error") {
       return `Could not read your profile (${f.message}). If this mentions RLS or JWT, the session may not be attached yet—try again, or confirm NEXT_PUBLIC_SUPABASE_* keys match your project.`;
@@ -68,17 +75,19 @@ export async function login(_prev: string | null, formData: FormData): Promise<s
     profile = again.ok ? again.profile : profile;
   }
 
-  if (profile.role === "admin") {
+  if (!profileHasLeaderAccess(profile) && profileHasAdminAccess(profile)) {
     redirect("/admin");
   }
 
-  const slug = effectiveLeaderCellSlug(profile);
-  if (!slug) {
+  if (profile.role === "leader" && !effectiveLeaderCellSlug(profile)) {
     return (
       "Could not attach a cell to this leader account. Run migration `0003_ensure_leader_cell_rpc.sql` in Supabase (SQL editor), then try again."
     );
   }
-  redirect(`/cell?cell=${encodeURIComponent(slug)}`);
+
+  const cookieStore = await cookies();
+  const active = resolveActiveRole(profile, cookieStore.get(ACTIVE_ROLE_COOKIE)?.value);
+  redirect(postLoginPath(profile, active));
 }
 
 export type PasswordUpdateState = { error?: string; success?: boolean };

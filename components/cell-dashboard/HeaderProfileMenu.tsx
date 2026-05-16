@@ -4,18 +4,24 @@ import Link from "next/link";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useOfflineContext } from "@/components/offline/offline-context";
 import { IconAvatar } from "@/components/cell-dashboard/icons";
+import { switchActiveRole } from "@/app/auth/active-role-actions";
+import type { RoleSwitchMenuProps } from "@/lib/auth/role-switch-menu";
+import { clearCellSnapshots } from "@/lib/offline/cell-snapshot-store";
 import { clearOfflineSyncQueue, syncQueueCount } from "@/lib/offline/offline-db";
 
 type HeaderProfileMenuProps = {
   /** Called when user chooses “View profile”; menu closes first. */
   onProfile?: () => void;
+  /** Dual admin+leader: switch workspace without signing out. */
+  roleSwitch?: RoleSwitchMenuProps | null;
   /** `dark` = menus on #0B0E14 header */
   surface?: "dark";
 };
 
-export function HeaderProfileMenu({ onProfile, surface = "dark" }: HeaderProfileMenuProps) {
+export function HeaderProfileMenu({ onProfile, roleSwitch, surface = "dark" }: HeaderProfileMenuProps) {
   const [open, setOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [switchingRole, setSwitchingRole] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const menuId = useId();
   const { online, refreshPendingCount } = useOfflineContext();
@@ -64,6 +70,7 @@ export function HeaderProfileMenu({ onProfile, surface = "dark" }: HeaderProfile
 
       if (res.status === 303 || res.status === 302) {
         await clearOfflineSyncQueue();
+        await clearCellSnapshots();
         await refreshPendingCount();
         const loc = res.headers.get("Location");
         if (loc) {
@@ -80,6 +87,7 @@ export function HeaderProfileMenu({ onProfile, surface = "dark" }: HeaderProfile
 
       if (res.type === "opaqueredirect") {
         await clearOfflineSyncQueue();
+        await clearCellSnapshots();
         await refreshPendingCount();
         window.location.href = "/";
         return;
@@ -87,6 +95,7 @@ export function HeaderProfileMenu({ onProfile, surface = "dark" }: HeaderProfile
 
       if (res.ok) {
         await clearOfflineSyncQueue();
+        await clearCellSnapshots();
         await refreshPendingCount();
         window.location.href = "/";
         return;
@@ -141,6 +150,21 @@ export function HeaderProfileMenu({ onProfile, surface = "dark" }: HeaderProfile
           >
             Profile & password
           </Link>
+          {roleSwitch ? (
+            <button
+              type="button"
+              role="menuitem"
+              disabled={switchingRole || signingOut}
+              className={`${itemClass} w-full cursor-pointer border-0 bg-transparent font-sans disabled:opacity-60`}
+              onClick={() => {
+                close();
+                setSwitchingRole(true);
+                void switchActiveRole(roleSwitch.target).finally(() => setSwitchingRole(false));
+              }}
+            >
+              {switchingRole ? "Switching…" : roleSwitch.label}
+            </button>
+          ) : null}
           {onProfile ? (
             <button
               type="button"

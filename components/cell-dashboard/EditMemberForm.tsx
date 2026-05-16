@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useLeaderCellDataOptional } from "@/components/offline/leader-cell-data-provider";
 import { updateMemberAction } from "@/app/members/actions";
 import { HelpFab } from "./HelpFab";
 import { IconChevronLeft } from "./icons";
@@ -11,7 +12,9 @@ import { memberRecordToFormValues, type MemberFormValues } from "./member-form-v
 import type { MemberRecord } from "@/lib/members-store";
 
 export type EditMemberFormProps = {
-  member: MemberRecord;
+  memberId: string;
+  /** Admin routes pass server-fetched member (no leader snapshot provider). */
+  member?: MemberRecord;
   /** Defaults to `/cell-members` */
   listHref?: string;
   onCancel?: () => void;
@@ -20,19 +23,38 @@ export type EditMemberFormProps = {
 };
 
 export function EditMemberForm({
-  member,
+  memberId,
+  member: memberProp,
   listHref = "/cell-members",
   onCancel,
   onSave,
   onHelp,
 }: EditMemberFormProps) {
+  const leaderData = useLeaderCellDataOptional();
+  const member = memberProp ?? leaderData?.getMemberById(memberId) ?? null;
   const router = useRouter();
   const saveLockRef = useRef(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [values, setValues] = useState<MemberFormValues>(() =>
-    memberRecordToFormValues(member),
+    member ? memberRecordToFormValues(member) : memberRecordToFormValues({
+      id: memberId,
+      cellId: "",
+      fullName: "",
+      email: "",
+      phone: "",
+      dateOfBirth: "",
+      area: "",
+      isStudent: false,
+      occupation: "",
+      foundationStatus: "yet_to_start",
+      memberStatus: "active",
+    }),
   );
+
+  useEffect(() => {
+    if (member) setValues(memberRecordToFormValues(member));
+  }, [member]);
 
   const patch = useCallback((p: Partial<MemberFormValues>) => {
     setValues((v) => ({ ...v, ...p }));
@@ -40,7 +62,7 @@ export function EditMemberForm({
   }, []);
 
   const handleSave = async () => {
-    if (saveLockRef.current) return;
+    if (!member || saveLockRef.current) return;
     saveLockRef.current = true;
     setSubmitting(true);
     setFormError(null);
@@ -65,9 +87,18 @@ export function EditMemberForm({
     }
 
     onSave?.();
+    if (leaderData) void leaderData.refreshSnapshot();
     router.push(listHref);
     router.refresh();
   };
+
+  if (!member) {
+    return (
+      <div className="flex flex-1 items-center justify-center bg-white p-8 text-center text-sm text-neutral-600">
+        <p>Member not found in saved data. Open members while online, then try again.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full min-h-0 w-full max-w-full flex-1 flex-col overflow-hidden overscroll-none bg-white font-sans text-black">

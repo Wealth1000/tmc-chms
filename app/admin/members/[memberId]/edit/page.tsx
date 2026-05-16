@@ -23,7 +23,7 @@ export default async function AdminEditMemberPage({ params, searchParams }: Page
 
   return (
     <div className="flex h-full min-h-0 w-full max-w-full flex-1 flex-col overflow-hidden overscroll-none">
-      <EditMemberForm key={member.id} member={member} listHref={adminMembersHref(filter)} />
+      <EditMemberForm key={member.id} memberId={member.id} member={member} listHref={adminMembersHref(filter)} />
     </div>
   );
 }

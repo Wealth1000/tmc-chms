@@ -23,8 +23,9 @@ export function OfflineBanner() {
       >
         {!online ? (
           <>
-            You are offline. Changes you save are stored on this device only and{" "}
-            <span className="font-semibold">will sync to Supabase when you are back online</span>.
+            You are offline. Screens you opened before show their last saved view. New saves stay on this
+            device and{" "}
+            <span className="font-semibold">sync when you reconnect</span>.
           </>
         ) : pendingSyncCount > 0 ? (
           <>

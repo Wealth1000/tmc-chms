@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { CellReportsView } from "@/components/cell-dashboard/CellReportsView";
+import { LeaderCellPageShell } from "@/components/cell-dashboard/LeaderCellPageShell";
 import { cellDashboardHref } from "@/lib/cell-leader-links";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { loadCellLeaderDashboard } from "@/lib/supabase/cells-queries";
@@ -24,12 +25,20 @@ export default async function CellReportsPage({ searchParams }: PageProps) {
 
   return (
     <div className="flex h-full min-h-0 w-full max-w-full flex-1 flex-col overflow-hidden">
-      <CellReportsView
-        key={resolved.cellSlug}
+      <LeaderCellPageShell
         cellSlug={resolved.cellSlug}
-        stats={resolved.stats}
-        homeHref={cellDashboardHref(resolved.cellSlug)}
-      />
+        server={{
+          dashboard: {
+            cellName: resolved.cellName,
+            leaderName: resolved.leaderName,
+            stats: resolved.stats,
+            lastUpdatedLabel: resolved.lastUpdatedLabel,
+            activities: resolved.activities,
+          },
+        }}
+      >
+        <CellReportsView key={resolved.cellSlug} homeHref={cellDashboardHref(resolved.cellSlug)} />
+      </LeaderCellPageShell>
     </div>
   );
 }

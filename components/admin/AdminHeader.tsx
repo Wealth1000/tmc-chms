@@ -4,8 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { HeaderProfileMenu } from "@/components/cell-dashboard/HeaderProfileMenu";
 import { IconBarChart, IconCalendar, IconLayoutGrid } from "@/components/cell-dashboard/icons";
+import type { RoleSwitchMenuProps } from "@/lib/auth/role-switch-menu";
 
-export function AdminHeader() {
+export function AdminHeader({ roleSwitch }: { roleSwitch?: RoleSwitchMenuProps | null }) {
   const pathname = usePathname();
   const isAttendanceLookup = pathname.startsWith("/admin/attendance-results");
   const isReports = pathname.startsWith("/admin/reports");
@@ -58,7 +59,7 @@ export function AdminHeader() {
               <span className="hidden sm:inline">Lookup</span>
             </Link>
           </nav>
-          <HeaderProfileMenu />
+          <HeaderProfileMenu roleSwitch={roleSwitch} />
         </div>
       </div>
     </header>

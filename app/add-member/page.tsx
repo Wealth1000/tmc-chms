@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { AddMemberForm } from "@/components/cell-dashboard/AddMemberForm";
+import { LeaderCellPageShell } from "@/components/cell-dashboard/LeaderCellPageShell";
 import { cellDashboardHref } from "@/lib/cell-leader-links";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { fetchCellDbRow } from "@/lib/supabase/cells-queries";
@@ -24,7 +25,9 @@ export default async function AddMemberPage({ searchParams }: PageProps) {
 
   return (
     <div className="flex h-full min-h-0 w-full max-w-full flex-1 flex-col overflow-hidden">
-      <AddMemberForm cellSlug={cell} homeHref={cellDashboardHref(cell)} />
+      <LeaderCellPageShell cellSlug={cell}>
+        <AddMemberForm cellSlug={cell} homeHref={cellDashboardHref(cell)} />
+      </LeaderCellPageShell>
     </div>
   );
 }

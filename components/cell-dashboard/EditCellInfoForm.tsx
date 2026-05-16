@@ -3,7 +3,9 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useLeaderCellData } from "@/components/offline/leader-cell-data-provider";
+import { MEETING_DAY_OPTIONS, type CellLeaderEditableInfo } from "@/lib/cell-info-store";
 import { HelpFab } from "./HelpFab";
 import {
   IconCalendar,
@@ -14,8 +16,6 @@ import {
   IconMapPin,
   IconUsers,
 } from "./icons";
-import type { CellLeaderEditableInfo } from "@/lib/cell-info-store";
-import { MEETING_DAY_OPTIONS } from "@/lib/cell-info-store";
 import { saveCellLeaderDetails } from "@/app/cell/actions";
 import { deleteMemberAction } from "@/app/members/actions";
 import { isCellLeaderRosterEntry, type MemberRecord } from "@/lib/members-store";
@@ -47,27 +47,33 @@ function InputShell({
   );
 }
 
+const EMPTY_EDITABLE: CellLeaderEditableInfo = {
+  cellName: "",
+  leaderName: "",
+  description: "",
+  meetingLocation: "",
+  meetingDay: "Wednesday",
+  meetingTime: "7:00 PM",
+  lastUpdatedLabel: "",
+};
+
 export type EditCellInfoFormProps = {
-  cellId: string;
-  initial: CellLeaderEditableInfo;
-  members: MemberRecord[];
   homeHref: string;
   onCancel?: () => void;
   onHelp?: () => void;
 };
 
-export function EditCellInfoForm({
-  cellId,
-  initial,
-  members,
-  homeHref,
-  onCancel,
-  onHelp,
-}: EditCellInfoFormProps) {
+export function EditCellInfoForm({ homeHref, onCancel, onHelp }: EditCellInfoFormProps) {
   const router = useRouter();
   const saveLockRef = useRef(false);
+  const { cellSlug, editable, members, refreshSnapshot } = useLeaderCellData();
+  const cellId = cellSlug;
   const { online, refreshPendingCount } = useOfflineContext();
-  const [values, setValues] = useState<CellLeaderEditableInfo>(initial);
+  const [values, setValues] = useState<CellLeaderEditableInfo>(editable ?? EMPTY_EDITABLE);
+
+  useEffect(() => {
+    if (editable) setValues(editable);
+  }, [editable]);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [memberActionError, setMemberActionError] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
@@ -145,9 +151,10 @@ export function EditCellInfoForm({
       setSaveError(res.error);
       return;
     }
+    await refreshSnapshot();
     router.refresh();
     router.push(homeHref);
-  }, [cellId, homeHref, online, refreshPendingCount, router, values]);
+  }, [cellId, homeHref, online, refreshPendingCount, refreshSnapshot, router, values]);
 
   const days = MEETING_DAY_OPTIONS();
   const busy = savingCell || removingId !== null;

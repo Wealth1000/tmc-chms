@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { EditCellInfoForm } from "@/components/cell-dashboard/EditCellInfoForm";
+import { LeaderCellPageShell } from "@/components/cell-dashboard/LeaderCellPageShell";
 import { cellDashboardHref } from "@/lib/cell-leader-links";
 import { cellDbRowToEditableInfo } from "@/lib/cell-leader-editable-mapper";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -35,13 +36,9 @@ export default async function CellEditInfoPage({ searchParams }: PageProps) {
 
   return (
     <div className="flex h-full min-h-0 w-full max-w-full flex-1 flex-col overflow-hidden">
-      <EditCellInfoForm
-        key={cell}
-        cellId={cell}
-        initial={initial}
-        members={members}
-        homeHref={cellDashboardHref(cell)}
-      />
+      <LeaderCellPageShell cellSlug={cell} server={{ editable: initial, members }}>
+        <EditCellInfoForm key={cell} homeHref={cellDashboardHref(cell)} />
+      </LeaderCellPageShell>
     </div>
   );
 }

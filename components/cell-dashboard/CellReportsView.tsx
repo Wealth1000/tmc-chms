@@ -13,6 +13,7 @@ import {
   IconUserPlus,
   IconUsers,
 } from "./icons";
+import { useLeaderCellData } from "@/components/offline/leader-cell-data-provider";
 import type { CellStats } from "./types";
 import {
   applyPeriodToOverview,
@@ -63,14 +64,16 @@ const periodTabs: { id: CellReportPeriod; label: string }[] = [
   { id: "quarter", label: "Quarter" },
 ];
 
+const EMPTY_STATS: CellStats = { totalMembers: 0, active: 0, inactive: 0, dormant: 0 };
+
 type CellReportsViewProps = {
-  cellSlug: string;
-  stats: CellStats;
   homeHref: string;
   onHelp?: () => void;
 };
 
-export function CellReportsView({ cellSlug, stats, homeHref, onHelp }: CellReportsViewProps) {
+export function CellReportsView({ homeHref, onHelp }: CellReportsViewProps) {
+  const { cellSlug, dashboard } = useLeaderCellData();
+  const stats = dashboard?.stats ?? EMPTY_STATS;
   const [period, setPeriod] = useState<CellReportPeriod>("month");
 
   const base = useMemo(() => buildCellReportsOverview(stats, cellSlug), [stats, cellSlug]);

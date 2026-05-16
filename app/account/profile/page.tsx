@@ -5,7 +5,18 @@ import { ProfilePasswordForm } from "@/components/account/ProfilePasswordForm";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { fetchCellDbRow } from "@/lib/supabase/cells-queries";
 import { ensureLeaderCellForCurrentUser } from "@/lib/supabase/ensure-leader-cell";
-import { effectiveLeaderCellSlug, fetchAppProfile } from "@/lib/supabase/profile";
+import { cookies } from "next/headers";
+import {
+  ACTIVE_ROLE_COOKIE,
+  postLoginPath,
+  resolveActiveRole,
+} from "@/lib/auth/active-role";
+import {
+  effectiveLeaderCellSlug,
+  fetchAppProfile,
+  profileHasAdminAccess,
+  profileHasLeaderAccess,
+} from "@/lib/supabase/profile";
 
 type PageProps = {
   searchParams: Promise<{ cell_slug?: string | string[] }>;
@@ -38,16 +49,15 @@ export default async function AccountProfilePage({ searchParams }: PageProps) {
     cellDisplayName = cellRow?.name ?? "New cell group";
   }
 
-  const dashboardHref =
-    profile?.role === "admin"
-      ? "/admin"
-      : leaderSlug
-        ? `/cell?cell=${encodeURIComponent(leaderSlug)}`
-        : null;
+  const cookieStore = await cookies();
+  const activeRole = profile
+    ? resolveActiveRole(profile, cookieStore.get(ACTIVE_ROLE_COOKIE)?.value)
+    : null;
+  const dashboardHref = profile && activeRole ? postLoginPath(profile, activeRole) : null;
 
   return (
     <div>
-      {cellSlugNotice && profile?.role === "leader" && !leaderSlug ? (
+      {cellSlugNotice && !leaderSlug ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
           <p className="font-medium">Cell not assigned</p>
           <p className="mt-1 text-amber-900/90">
@@ -76,7 +86,7 @@ export default async function AccountProfilePage({ searchParams }: PageProps) {
         Signed in as <span className="font-medium text-neutral-900">{user.email ?? user.id}</span>
       </p>
 
-      {profile?.role === "leader" && leaderSlug ? (
+      {profileHasLeaderAccess(profile) && leaderSlug ? (
         <section className="mt-10 rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
           <h2 className="text-lg font-semibold text-black">Cell</h2>
           <p className="mt-1 text-sm text-neutral-600">
@@ -90,7 +100,7 @@ export default async function AccountProfilePage({ searchParams }: PageProps) {
       ) : null}
 
       <section
-        className={`rounded-xl border border-neutral-200 bg-white p-5 shadow-sm ${profile?.role === "leader" && leaderSlug ? "mt-8" : "mt-10"}`}
+        className={`rounded-xl border border-neutral-200 bg-white p-5 shadow-sm ${profileHasLeaderAccess(profile) && leaderSlug ? "mt-8" : "mt-10"}`}
       >
         <h2 className="text-lg font-semibold text-black">Change password</h2>
         <p className="mt-1 text-sm text-neutral-600">

@@ -1,9 +1,20 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 import type { SupabaseCookieToSet } from "@/lib/supabase/cookie-types";
+import {
+  ACTIVE_ROLE_COOKIE,
+  postLoginPath,
+  resolveActiveRole,
+  type ActiveRole,
+} from "@/lib/auth/active-role";
 import { readSupabaseServerOrEdgeEnv } from "@/lib/supabase/env";
 import { ensureLeaderCellForCurrentUser } from "@/lib/supabase/ensure-leader-cell";
-import { effectiveLeaderCellSlug, fetchAppProfile } from "@/lib/supabase/profile";
+import {
+  effectiveLeaderCellSlug,
+  fetchAppProfile,
+  profileHasAdminAccess,
+  profileHasLeaderAccess,
+} from "@/lib/supabase/profile";
 
 function isProtectedPath(pathname: string): boolean {
   if (pathname.startsWith("/admin")) return true;
@@ -21,6 +32,12 @@ function leaderNeedsCellQuery(pathname: string): boolean {
     pathname === "/add-member" ||
     pathname.startsWith("/add-member/")
   );
+}
+
+function redirectToActiveHome(request: NextRequest, profile: NonNullable<Awaited<ReturnType<typeof fetchAppProfile>>>, active: ActiveRole) {
+  const path = postLoginPath(profile, active);
+  const url = new URL(path, request.url);
+  return NextResponse.redirect(url);
 }
 
 export async function middleware(request: NextRequest) {
@@ -61,60 +78,61 @@ export async function middleware(request: NextRequest) {
     profile = await fetchAppProfile(supabase, user.id);
   }
 
-  if (pathname === "/" && user && profile) {
-    if (profile.role === "admin") {
-      return NextResponse.redirect(new URL("/admin", request.url));
-    }
-    if (profile.role === "leader") {
-      const slug = effectiveLeaderCellSlug(profile);
-      if (!slug) {
-        return NextResponse.redirect(new URL("/account/profile?cell_slug=required", request.url));
-      }
-      const u = new URL("/cell", request.url);
-      u.searchParams.set("cell", slug);
-      return NextResponse.redirect(u);
-    }
+  const activeRoleCookie = request.cookies.get(ACTIVE_ROLE_COOKIE)?.value;
+  const activeRole = profile ? resolveActiveRole(profile, activeRoleCookie) : null;
+
+  if (pathname === "/" && user && profile && activeRole) {
+    return redirectToActiveHome(request, profile, activeRole);
   }
 
   if (!isProtectedPath(pathname)) {
     return response;
   }
 
-  if (!user || !profile) {
+  if (!user || !profile || !activeRole) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
-  if (profile.role === "admin") {
+  const slug = effectiveLeaderCellSlug(profile);
+
+  if (activeRole === "admin") {
+    if (!profileHasAdminAccess(profile)) {
+      if (profileHasLeaderAccess(profile)) {
+        return redirectToActiveHome(request, profile, "leader");
+      }
+      return NextResponse.redirect(new URL("/", request.url));
+    }
     if (
       pathname.startsWith("/cell") ||
       pathname.startsWith("/cell-members") ||
       pathname.startsWith("/add-member")
     ) {
-      return NextResponse.redirect(new URL("/admin", request.url));
+      return redirectToActiveHome(request, profile, "admin");
     }
     return response;
   }
 
-  if (profile.role === "leader") {
-    const slug = effectiveLeaderCellSlug(profile);
-    if (pathname.startsWith("/admin")) {
-      if (!slug) {
-        return NextResponse.redirect(new URL("/account/profile?cell_slug=required", request.url));
-      }
-      const u = new URL("/cell", request.url);
+  // Active leader workspace
+  if (!profileHasLeaderAccess(profile)) {
+    if (profileHasAdminAccess(profile)) {
+      return redirectToActiveHome(request, profile, "admin");
+    }
+    return NextResponse.redirect(new URL("/account/profile?cell_slug=required", request.url));
+  }
+
+  if (pathname.startsWith("/admin")) {
+    return redirectToActiveHome(request, profile, "leader");
+  }
+
+  if (leaderNeedsCellQuery(pathname)) {
+    if (!slug) {
+      return NextResponse.redirect(new URL("/account/profile?cell_slug=required", request.url));
+    }
+    const cellParam = searchParams.get("cell")?.trim() ?? "";
+    if (cellParam !== slug) {
+      const u = request.nextUrl.clone();
       u.searchParams.set("cell", slug);
       return NextResponse.redirect(u);
-    }
-    if (leaderNeedsCellQuery(pathname)) {
-      if (!slug) {
-        return NextResponse.redirect(new URL("/account/profile?cell_slug=required", request.url));
-      }
-      const cellParam = searchParams.get("cell")?.trim() ?? "";
-      if (cellParam !== slug) {
-        const u = request.nextUrl.clone();
-        u.searchParams.set("cell", slug);
-        return NextResponse.redirect(u);
-      }
     }
   }
 
